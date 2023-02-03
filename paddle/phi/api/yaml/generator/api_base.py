@@ -1195,6 +1195,35 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
         for kernel_out in outputs_args:
             fallback_kernel_output_trans += f"""
 {code_indent}    TransDataBackend({kernel_out}, kernel_backend, {kernel_out});"""
+        dy_debug = ""
+        if self.outputs['types'][0] == "Tensor":
+            is_single_output = (
+                True if len(self.outputs['types']) == 1 else False
+            )
+            if is_single_output:
+                print("IS Tensor!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                dy_debug = f"""
+{code_indent}  if (std::getenv("XPU_DY_DEBUG") != nullptr) {{
+{code_indent}    auto dy_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
+{code_indent}    bool api_output_is_tensor = true;
+{code_indent}    float* cpu_res;
+{code_indent}    if (api_output_is_tensor) {{
+{code_indent}      auto dt = static_cast<phi::DenseTensor*>(api_output.impl().get());
+{code_indent}      if (dt->dtype() == DataType::FLOAT32) {{
+{code_indent}        cpu_res = new float[dt->numel()];
+{code_indent}        xpu_memcpy(cpu_res, dt->data<float>(), sizeof(float) * dt->numel(), XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+{code_indent}        float sum_res = 0;
+{code_indent}        for (int i = 0; i < dt->numel(); i++) {{
+{code_indent}          sum_res += cpu_res[i];
+{code_indent}        }}
+{code_indent}      std::cout << "op_name " << phi::TransToFluidOpName("{kernel_name}") << ", "
+{code_indent}                << dy_debug_dev_place << ", "
+{code_indent}                << kernel_data_type << ", "
+{code_indent}                << "output sum is " << sum_res << std::endl;
+{code_indent}      }}
+{code_indent}    }}
+{code_indent}    free(cpu_res);
+{code_indent}  }}"""
         return f"""
 {code_indent}  VLOG(6) << "{self.api} API kernel key: [" << kernel_backend << ", " << kernel_layout << ", "<< kernel_data_type << "]";
 {code_indent}  auto kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
@@ -1228,6 +1257,7 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  if (kernel_result.has_fallback_cpu) {{
 {fallback_kernel_output_trans}
 {code_indent}  }}
+{dy_debug}
 {code_indent}  {self.gene_return_code()}"""
 
     def get_condition_code(self, kernel_name):

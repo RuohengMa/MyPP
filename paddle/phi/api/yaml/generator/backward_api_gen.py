@@ -242,6 +242,11 @@ PADDLE_API void {api_func_name}({self.get_declare_args()});
                 )
             )
 
+        output_create = (
+            output_create
+            + f"""
+{code_indent}  Tensor api_output;"""
+        )
         return kernel_output, output_names, output_create
 
     def gene_invoke_code(self, invoke_code, params_code):
