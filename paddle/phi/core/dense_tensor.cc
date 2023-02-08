@@ -198,6 +198,8 @@ const void* DenseTensor::data() const {
       reinterpret_cast<uintptr_t>(holder_->ptr()) + meta_.offset);
 }
 
+const void* DenseTensor::dy_acc_debug_data() const { return this->data(); }
+
 void DenseTensor::set_meta(DenseTensorMeta&& meta) {
   PADDLE_ENFORCE(!meta_.valid(),
                  phi::errors::InvalidArgument(

@@ -165,6 +165,8 @@ class DenseTensor : public TensorBase,
 
   void* data();
 
+  const void* dy_acc_debug_data() const;
+
   /// \brief Get whether the storage_properties is inited.
   /// \return The init status of storage_properties.
   bool storage_properties_initialized() const;

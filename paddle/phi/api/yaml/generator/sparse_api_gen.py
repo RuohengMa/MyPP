@@ -203,6 +203,9 @@ class SparseAPI(ForwardAPI):
                     )
         return f"""{create_input_var_code}"""
 
+    def print_op_output(self):
+        return ""
+
     def gen_sparse_kernel_code(self, kernel_name, inplace_flag=False):
         _, kernel_output_names, output_create = self.gene_output(
             self.kernel['dispatch'][kernel_name][1], None, '', inplace_flag
