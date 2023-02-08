@@ -197,6 +197,9 @@ class StringsAPI(ForwardAPI):
 
         return input_tensor_code, kernel_args[:-2], kernel_signature
 
+    def print_op_output(self):
+        return ""
+
     def gen_string_tensor_kernel_code(self, inplace_flag=False, code_indent=""):
         input_tensors, kernel_args, kernel_signature = self.get_kernel_args(
             code_indent

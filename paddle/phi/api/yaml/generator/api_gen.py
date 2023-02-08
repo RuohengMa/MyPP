@@ -151,19 +151,54 @@ class ForwardAPI(BaseAPI):
 
     def gene_return_code(self):
         if self.is_dygraph_api or len(self.intermediate_outs) == 0:
-            return "return api_output;"
+            return self.print_op_output() + "return api_output;"
         else:
             return_out_list = []
             for i, name in enumerate(self.outputs['names']):
                 if name.split('@')[0] not in self.intermediate_outs:
                     return_out_list.append(i)
             if len(return_out_list) == 1:
-                return f"return std::get<{return_out_list[0]}>(api_output);"
+                return (
+                    self.print_op_output()
+                    + f"return std::get<{return_out_list[0]}>(api_output);"
+                )
             else:
                 selected_code = [
                     f"std::get<{i}>(api_output)" for i in return_out_list
                 ]
-            return 'return std::make_tuple(' + ", ".join(selected_code) + ');'
+            return (
+                self.print_op_output()
+                + 'return std::make_tuple('
+                + ", ".join(selected_code)
+                + ');'
+            )
+
+    def print_op_output(self):
+        size = len(self.outputs['types'])
+        kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
+        code_indent = self.XPU_DY_ACC_DEBUG_code_indent
+        debug_code = f"""
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr) {{
+{code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
+{code_indent}    if (platform::is_xpu_place(phi::TransToPhiPlace(dy_acc_debug_dev_place))) {{
+{code_indent}      dev_ctx->Wait();
+{code_indent}    }}
+{code_indent}    std::string inplace_string = inplace ? "true" : "false";
+{code_indent}    std::cout << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    std::cout << "output: " << std::endl;"""
+        if size == 1:
+            debug_code += f"""
+{code_indent}    OpOutputDebugger::PrintOutput(api_output);"""
+        elif size > 1:
+            for i in range(size):
+                debug_code += f"""
+{code_indent}    OpOutputDebugger::PrintOutput(std::get<{i}>(api_output));"""
+        else:
+            raise Exception("dy_acc_debug codegen FAILED!")
+        debug_code += f"""
+{code_indent}  }}"""
+        return debug_code
 
     def gene_output(
         self,
@@ -310,6 +345,10 @@ class ForwardAPI(BaseAPI):
                 )
             )
 
+        inplace = "true" if inplace_flag else "false"
+        output_create += f"""
+{code_indent}  bool inplace = {inplace};"""
+
         return kernel_output, output_names, output_create
 
     def reset_view_after_fallback(
@@ -375,6 +414,9 @@ def source_include(header_file_path):
 
 #include "paddle/phi/api/profiler/event_tracing.h"
 #include "paddle/phi/api/profiler/supplement_tracing.h"
+
+#include "paddle/phi/api/lib/op_debug.h"
+#include <string>
 
 DECLARE_bool(conv2d_disable_cudnn);
 DECLARE_int32(low_precision_op_list);

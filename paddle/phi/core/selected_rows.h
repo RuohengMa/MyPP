@@ -48,6 +48,8 @@ class SelectedRows : public TensorBase,
 
   const DenseTensor& value() const { return impl_->value(); }
 
+  const void* dy_acc_debug_data() const;
+
   DenseTensor* mutable_value() { return impl_->mutable_value(); }
 
   int64_t height() const { return impl_->height(); }

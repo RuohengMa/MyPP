@@ -30,6 +30,8 @@ class TensorBase {
 
   virtual ~TensorBase() = default;
 
+  virtual const void* dy_acc_debug_data() const { return nullptr; }
+
   /// \brief Returns the number of elements contained in tensor.
   /// \return The number of elements contained in tensor.
   virtual int64_t numel() const = 0;

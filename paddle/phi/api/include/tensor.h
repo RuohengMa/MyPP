@@ -339,6 +339,8 @@ class PADDLE_API Tensor final {
   template <typename T>
   const T* data() const;
 
+  const void* dy_acc_debug_data() const;
+
   /**
    * @brief Get the memory pointer directly.
    * It's usually used to get the mutable output data pointer.

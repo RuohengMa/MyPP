@@ -314,6 +314,12 @@ cc_library(
        backward_infermeta
        phi_data_transform
        phi_profiler)
+
+cc_library(
+  op_debug
+  SRCS ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/op_debug.cc
+  DEPS phi)
+
 cc_library(
   phi_function_api
   SRCS ${api_source_file}
@@ -323,7 +329,9 @@ cc_library(
        api_gen_utils
        phi_data_transform
        api_custom_impl
-       phi_profiler)
+       phi_profiler
+       op_debug)
+
 cc_library(
   phi_bw_function_api
   SRCS ${bw_api_source_file}

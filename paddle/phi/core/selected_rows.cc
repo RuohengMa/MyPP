@@ -23,4 +23,7 @@ SelectedRows::SelectedRows(const std::vector<int64_t>& rows,
 SelectedRows::SelectedRows()
     : impl_(std::make_shared<phi::SelectedRowsImpl>()) {}
 
+const void* SelectedRows::dy_acc_debug_data() const {
+  return this->value().data();
+}
 }  // namespace phi

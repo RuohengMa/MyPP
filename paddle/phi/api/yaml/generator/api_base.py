@@ -1185,6 +1185,8 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
         return ''
 
     def gen_kernel_code(self, kernel_name, code_indent, inplace_flag=False):
+        self.XPU_DY_ACC_DEBUG_kernel_name = kernel_name
+        self.XPU_DY_ACC_DEBUG_code_indent = code_indent
         kernel_dispatch = self.kernel['dispatch'][kernel_name]
         input_tensors, kernel_args, kernel_signature = self.get_kernel_args(
             kernel_dispatch, code_indent

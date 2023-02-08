@@ -254,6 +254,11 @@ const T *Tensor::data() const {
 }
 
 template PADDLE_API const bool *Tensor::data<bool>() const;
+
+const void *Tensor::dy_acc_debug_data() const {
+  return this->impl().get()->dy_acc_debug_data();
+}
+
 template PADDLE_API const int8_t *Tensor::data<int8_t>() const;
 template PADDLE_API const uint8_t *Tensor::data<uint8_t>() const;
 template PADDLE_API const int16_t *Tensor::data<int16_t>() const;
