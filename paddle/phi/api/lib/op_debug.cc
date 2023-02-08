@@ -18,7 +18,9 @@
 namespace paddle {
 namespace experimental {
 
-void OpOutputDebugger::PrintOutput(const Tensor &t, bool optional) {
+void OpOutputDebugger::PrintOutput(const Tensor &t,
+                                   Backend backend,
+                                   bool optional) {
   if (optional) {
     std::cout << "  paddle::optional<Tensor>: ";
   } else {
@@ -29,35 +31,62 @@ void OpOutputDebugger::PrintOutput(const Tensor &t, bool optional) {
     return;
   }
   if (t.dtype() == DataType::FLOAT32) {
-    float *cpu_res = new float[t.numel()];
-    xpu_memcpy(cpu_res,
-               t.dy_acc_debug_data(),
-               sizeof(float) * t.numel(),
-               XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-    float sum_res = 0;
-    for (int i = 0; i < t.numel(); i++) {
-      sum_res += cpu_res[i];
+    if (backend == Backend::CPU) {
+      const float *cpu_res = static_cast<const float *>(t.dy_acc_debug_data());
+      float sum_res = 0;
+      for (int i = 0; i < t.numel(); i++) {
+        sum_res += cpu_res[i];
+      }
+      std::cout << "output FLOAT32 " << sum_res << std::endl;
+      return;
+    } else if (backend == Backend::XPU) {
+      float *cpu_res = new float[t.numel()];
+      xpu_memcpy(cpu_res,
+                 t.dy_acc_debug_data(),
+                 sizeof(float) * t.numel(),
+                 XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+      float sum_res = 0;
+      for (int i = 0; i < t.numel(); i++) {
+        sum_res += cpu_res[i];
+      }
+      std::cout << "output FLOAT32 " << sum_res << std::endl;
+      free(cpu_res);
+    } else {
+      std::cout << "this tool does not support backends other than CPU and XPU"
+                << std::endl;
     }
-    std::cout << "output FLOAT32 " << sum_res << std::endl;
-    free(cpu_res);
   } else if (t.dtype() == DataType::INT32) {
-    int *cpu_res = new int[t.numel()];
-    xpu_memcpy(cpu_res,
-               t.dy_acc_debug_data(),
-               sizeof(int) * t.numel(),
-               XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-    int sum_res = 0;
-    for (int i = 0; i < t.numel(); i++) {
-      sum_res += cpu_res[i];
+    if (backend == Backend::CPU) {
+      const int *cpu_res = static_cast<const int *>(t.dy_acc_debug_data());
+      int sum_res = 0;
+      for (int i = 0; i < t.numel(); i++) {
+        sum_res += cpu_res[i];
+      }
+      std::cout << "output INT32 " << sum_res << std::endl;
+      return;
+    } else if (backend == Backend::XPU) {
+      int *cpu_res = new int[t.numel()];
+      xpu_memcpy(cpu_res,
+                 t.dy_acc_debug_data(),
+                 sizeof(int) * t.numel(),
+                 XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+      int sum_res = 0;
+      for (int i = 0; i < t.numel(); i++) {
+        sum_res += cpu_res[i];
+      }
+      std::cout << "output INT32 " << sum_res << std::endl;
+      free(cpu_res);
+    } else {
+      std::cout << "this tool does not support backends other than CPU and XPU"
+                << std::endl;
     }
-    std::cout << "output INT32 " << sum_res << std::endl;
-    free(cpu_res);
   } else {
     std::cout << "output dtype " << t.dtype() << " is NOT SUPPORTED"
               << std::endl;
   }
 }
 void OpOutputDebugger::PrintOutput(const std::vector<Tensor> &v_t,
+                                   Backend backend,
                                    bool optional) {
   if (optional) {
     std::cout << "  paddle::optional<std::vector<Tensor>>: ";
@@ -71,17 +100,32 @@ void OpOutputDebugger::PrintOutput(const std::vector<Tensor> &v_t,
         std::cout << "output is NOT INITIALIZED" << std::endl;
         return;
       }
-      float *cpu_res = new float[t.numel()];
-      xpu_memcpy(cpu_res,
-                 t.dy_acc_debug_data(),
-                 sizeof(float) * t.numel(),
-                 XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-      float sum_res = 0;
-      for (int i = 0; i < t.numel(); i++) {
-        sum_res += cpu_res[i];
+      if (backend == Backend::CPU) {
+        const float *cpu_res =
+            static_cast<const float *>(t.dy_acc_debug_data());
+        float sum_res = 0;
+        for (int i = 0; i < t.numel(); i++) {
+          sum_res += cpu_res[i];
+        }
+        std::cout << "output FLOAT32 " << sum_res << std::endl;
+        return;
+      } else if (backend == Backend::XPU) {
+        float *cpu_res = new float[t.numel()];
+        xpu_memcpy(cpu_res,
+                   t.dy_acc_debug_data(),
+                   sizeof(float) * t.numel(),
+                   XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+        float sum_res = 0;
+        for (int i = 0; i < t.numel(); i++) {
+          sum_res += cpu_res[i];
+        }
+        std::cout << "output FLOAT32 " << sum_res << std::endl;
+        free(cpu_res);
+      } else {
+        std::cout
+            << "this tool does not support backends other than CPU and XPU"
+            << std::endl;
       }
-      std::cout << "output FLOAT32 " << sum_res << ", ";
-      free(cpu_res);
     }
   } else if (v_t[0].dtype() == DataType::INT32) {
     for (int i = 0; (unsigned)i < v_t.size(); i++) {
@@ -90,34 +134,49 @@ void OpOutputDebugger::PrintOutput(const std::vector<Tensor> &v_t,
         std::cout << "output is NOT INITIALIZED" << std::endl;
         return;
       }
-      int *cpu_res = new int[t.numel()];
-      xpu_memcpy(cpu_res,
-                 t.dy_acc_debug_data(),
-                 sizeof(int) * t.numel(),
-                 XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-      int sum_res = 0;
-      for (int i = 0; i < t.numel(); i++) {
-        sum_res += cpu_res[i];
+      if (backend == Backend::CPU) {
+        const int *cpu_res = static_cast<const int *>(t.dy_acc_debug_data());
+        int sum_res = 0;
+        for (int i = 0; i < t.numel(); i++) {
+          sum_res += cpu_res[i];
+        }
+        std::cout << "output INT32 " << sum_res << std::endl;
+        return;
+      } else if (backend == Backend::XPU) {
+        int *cpu_res = new int[t.numel()];
+        xpu_memcpy(cpu_res,
+                   t.dy_acc_debug_data(),
+                   sizeof(int) * t.numel(),
+                   XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+        int sum_res = 0;
+        for (int i = 0; i < t.numel(); i++) {
+          sum_res += cpu_res[i];
+        }
+        std::cout << "output INT32 " << sum_res << std::endl;
+        free(cpu_res);
+      } else {
+        std::cout
+            << "this tool does not support backends other than CPU and XPU"
+            << std::endl;
       }
-      std::cout << ", output INT32 " << sum_res << ", ";
-      free(cpu_res);
     }
   } else {
     std::cout << "output dtype " << v_t[0].dtype() << " is NOT SUPPORTED";
   }
   std::cout << std::endl;
 }
-void OpOutputDebugger::PrintOutput(const paddle::optional<Tensor> &t) {
+void OpOutputDebugger::PrintOutput(const paddle::optional<Tensor> &t,
+                                   Backend backend) {
   if (t) {
-    OpOutputDebugger::PrintOutput(*t, true);
+    OpOutputDebugger::PrintOutput(*t, backend, true);
   } else {
     std::cout << "  paddle::optional<Tensor>: NOT INITIALIZED" << std::endl;
   }
 }
 void OpOutputDebugger::PrintOutput(
-    const paddle::optional<std::vector<Tensor>> &v_t) {
+    const paddle::optional<std::vector<Tensor>> &v_t, Backend backend) {
   if (v_t) {
-    OpOutputDebugger::PrintOutput(*v_t, true);
+    OpOutputDebugger::PrintOutput(*v_t, backend, true);
   } else {
     std::cout << "  paddle::optional<std::vector<Tensor>>: NOT INITIALIZED"
               << std::endl;
