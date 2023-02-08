@@ -15,6 +15,7 @@
 #pragma once
 
 #include "paddle/phi/api/include/tensor.h"
+#include "paddle/phi/common/backend.h"
 #include "paddle/utils/optional.h"
 
 namespace paddle {
@@ -22,11 +23,15 @@ namespace experimental {
 
 class OpOutputDebugger {
  public:
-  static void PrintOutput(const Tensor& t, bool optional = false);
-  static void PrintOutput(const std::vector<Tensor>& v_t,
+  static void PrintOutput(const Tensor& t,
+                          Backend backend,
                           bool optional = false);
-  static void PrintOutput(const paddle::optional<Tensor>& t);
-  static void PrintOutput(const paddle::optional<std::vector<Tensor>>& v_t);
+  static void PrintOutput(const std::vector<Tensor>& v_t,
+                          Backend backend,
+                          bool optional = false);
+  static void PrintOutput(const paddle::optional<Tensor>& t, Backend backend);
+  static void PrintOutput(const paddle::optional<std::vector<Tensor>>& v_t,
+                          Backend backend);
 };
 
 }  // namespace experimental

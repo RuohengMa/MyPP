@@ -189,11 +189,11 @@ class ForwardAPI(BaseAPI):
 {code_indent}    std::cout << "output: " << std::endl;"""
         if size == 1:
             debug_code += f"""
-{code_indent}    OpOutputDebugger::PrintOutput(api_output);"""
+{code_indent}    OpOutputDebugger::PrintOutput(api_output, kernel_backend);"""
         elif size > 1:
             for i in range(size):
                 debug_code += f"""
-{code_indent}    OpOutputDebugger::PrintOutput(std::get<{i}>(api_output));"""
+{code_indent}    OpOutputDebugger::PrintOutput(std::get<{i}>(api_output), kernel_backend);"""
         else:
             raise Exception("dy_acc_debug codegen FAILED!")
         debug_code += f"""
