@@ -431,11 +431,11 @@ def generate_api(api_yaml_path, header_file_path, source_file_path):
     header_file.write("#pragma once\n")
     header_file.write(header_include())
     header_file.write(namespace[0])
-    header_file.write(global_id)
 
     include_header_file = "paddle/phi/api/include/api.h"
     source_file.write(source_include(include_header_file))
     source_file.write(namespace[0])
+    source_file.write(global_id)
 
     for api in apis:
         foward_api = ForwardAPI(api)
