@@ -76,6 +76,10 @@ namespace experimental {
     )
 
 
+def op_global_id():
+    return "static int global_id = 0;"
+
+
 def sparse_namespace():
     return (
         """
@@ -98,6 +102,7 @@ def generate_intermediate_api(
     dygraph_source_file = open(dygraph_source_file_path, 'w')
 
     namespace = api_namespace()
+    global_id = op_global_id()
     sparse_namespace_pair = sparse_namespace()
 
     dygraph_header_file.write("#pragma once\n")
@@ -107,6 +112,7 @@ def generate_intermediate_api(
     dygraph_include_header_file = "paddle/phi/api/lib/dygraph_api.h"
     dygraph_source_file.write(source_include(dygraph_include_header_file))
     dygraph_source_file.write(namespace[0])
+    dygraph_source_file.write(global_id)
 
     apis = []
     for each_api_yaml in api_yaml_path:
