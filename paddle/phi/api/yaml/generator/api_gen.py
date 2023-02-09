@@ -185,7 +185,7 @@ class ForwardAPI(BaseAPI):
 {code_indent}    }}
 {code_indent}    std::string inplace_string = inplace ? "true" : "false";
 {code_indent}    std::cout << std::endl;
-{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: " << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: f-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
 {code_indent}    global_id += 1;
 {code_indent}    std::cout << "output: " << std::endl;"""
         if size == 1:

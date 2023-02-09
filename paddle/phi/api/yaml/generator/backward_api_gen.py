@@ -109,7 +109,29 @@ class BackwardAPI(BaseAPI):
         return result
 
     def gene_return_code(self):
-        return ""
+        return self.print_op_output()
+
+    def print_op_output(self):
+        size = len(self.kernel_outputs)
+        kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
+        code_indent = self.XPU_DY_ACC_DEBUG_code_indent
+        debug_code = f"""
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr) {{
+{code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
+{code_indent}    if (platform::is_xpu_place(phi::TransToPhiPlace(dy_acc_debug_dev_place))) {{
+{code_indent}      dev_ctx->Wait();
+{code_indent}    }}
+{code_indent}    std::string inplace_string = inplace ? "true" : "false";
+{code_indent}    std::cout << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: b-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    global_id += 1;
+{code_indent}    std::cout << "output: " << std::endl;"""
+        for i in range(size):
+            debug_code += f"""
+{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, kernel_backend);"""
+        debug_code += f"""
+{code_indent}  }}"""
+        return debug_code
 
     def gene_api_declaration(self):
         if not self.is_base_api:
@@ -234,13 +256,18 @@ PADDLE_API void {api_func_name}({self.get_declare_args()});
                         + f"""
 {code_indent}  auto kernel_out_{i} = {set_out_func}(&{self.outputs['names'][i]});"""
                     )
-
         else:
             raise ValueError(
                 "{} : Output error: the output should not be empty.".format(
                     self.api
                 )
             )
+
+        inplace = "true" if inplace_flag else "false"
+        output_create += f"""
+{code_indent}  bool inplace = {inplace};"""
+
+        self.kernel_outputs = kernel_output
 
         return kernel_output, output_names, output_create
 
@@ -289,6 +316,8 @@ def source_include(header_file_path):
 #include "paddle/phi/api/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/supplement_tracing.h"
 
+#include "paddle/phi/api/lib/op_debug.h"
+
 DECLARE_bool(conv2d_disable_cudnn);
 DECLARE_int32(low_precision_op_list);
 """
@@ -309,6 +338,10 @@ namespace experimental {
     )
 
 
+def op_global_id():
+    return "static int global_id = 0;"
+
+
 def generate_backward_api(
     backward_yaml_path, header_file_path, source_file_path
 ):
@@ -324,6 +357,7 @@ def generate_backward_api(
     source_file = open(source_file_path, 'w')
 
     namespace = backward_api_namespace()
+    global_id = op_global_id()
 
     header_file.write("#pragma once\n")
     header_file.write(header_include())
@@ -332,6 +366,7 @@ def generate_backward_api(
     include_header_file = "paddle/phi/api/backward/backward_api.h"
     source_file.write(source_include(include_header_file))
     source_file.write(namespace[0])
+    source_file.write(global_id)
 
     for bw_api in bw_apis:
         bw_api = BackwardAPI(bw_api)
