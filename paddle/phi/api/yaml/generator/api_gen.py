@@ -185,7 +185,8 @@ class ForwardAPI(BaseAPI):
 {code_indent}    }}
 {code_indent}    std::string inplace_string = inplace ? "true" : "false";
 {code_indent}    std::cout << std::endl;
-{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: " << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    global_id += 1;
 {code_indent}    std::cout << "output: " << std::endl;"""
         if size == 1:
             debug_code += f"""
@@ -438,6 +439,10 @@ namespace experimental {
     )
 
 
+def op_global_id():
+    return "static int global_id = 0;"
+
+
 def generate_api(api_yaml_path, header_file_path, source_file_path):
     apis = []
 
@@ -451,10 +456,12 @@ def generate_api(api_yaml_path, header_file_path, source_file_path):
     source_file = open(source_file_path, 'w')
 
     namespace = api_namespace()
+    global_id = op_global_id()
 
     header_file.write("#pragma once\n")
     header_file.write(header_include())
     header_file.write(namespace[0])
+    header_file.write(global_id)
 
     include_header_file = "paddle/phi/api/include/api.h"
     source_file.write(source_include(include_header_file))
