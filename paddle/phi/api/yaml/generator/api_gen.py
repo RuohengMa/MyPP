@@ -345,6 +345,8 @@ class ForwardAPI(BaseAPI):
         output_create += f"""
 {code_indent}  bool inplace = {inplace};"""
 
+        self.kernel_outputs = kernel_output
+
         return kernel_output, output_names, output_create
 
     def reset_view_after_fallback(
