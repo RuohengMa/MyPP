@@ -174,7 +174,7 @@ class ForwardAPI(BaseAPI):
             )
 
     def print_op_output(self):
-        size = len(self.outputs['types'])
+        size = len(self.kernel_outputs)
         kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
         code_indent = self.XPU_DY_ACC_DEBUG_code_indent
         debug_code = f"""
@@ -188,17 +188,12 @@ class ForwardAPI(BaseAPI):
 {code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: f-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
 {code_indent}    global_id += 1;
 {code_indent}    std::cout << "output: " << std::endl;"""
-        if size == 1:
+        for i in range(size):
             debug_code += f"""
-{code_indent}    OpOutputDebugger::PrintOutput(api_output, kernel_backend);"""
-        elif size > 1:
-            for i in range(size):
-                debug_code += f"""
-{code_indent}    OpOutputDebugger::PrintOutput(std::get<{i}>(api_output), kernel_backend);"""
-        else:
-            raise Exception("dy_acc_debug codegen FAILED!")
+{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, kernel_backend);"""
         debug_code += f"""
-{code_indent}  }}"""
+{code_indent}  }}
+{code_indent}"""
         return debug_code
 
     def gene_output(
