@@ -30,7 +30,7 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
     if (dt->dtype() == DataType::FLOAT32) {
       const float *cpu_res =
           static_cast<const float *>(dt->dy_acc_debug_data());
-      float sum_res = 0;
+      double sum_res = 0;
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
@@ -39,7 +39,7 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
     } else if (dt->dtype() == DataType::INT32) {
       const int32_t *cpu_res =
           static_cast<const int32_t *>(dt->dy_acc_debug_data());
-      int32_t sum_res = 0;
+      int64_t sum_res = 0;
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
@@ -90,7 +90,7 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
                  dt->dy_acc_debug_data(),
                  sizeof(float) * dt->numel(),
                  XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-      float sum_res = 0;
+      double sum_res = 0;
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
@@ -103,7 +103,7 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
                  dt->dy_acc_debug_data(),
                  sizeof(int32_t) * dt->numel(),
                  XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-      int32_t sum_res = 0;
+      int64_t sum_res = 0;
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
