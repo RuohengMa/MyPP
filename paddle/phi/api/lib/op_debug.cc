@@ -181,5 +181,65 @@ void OpOutputDebugger::PrintOutput(const std::vector<phi::DenseTensor *> &v_t,
   }
 }
 
+void OpOutputDebugger::PrintOutput(const std::vector<phi::DenseTensor> &v_t,
+                                   Backend backend) {
+  std::cout << "  std::vector<Tensor>:";
+  if (v_t.size() == 0) {
+    std::cout << " output is NOT INITIALIZED" << std::endl;
+    return;
+  }
+  std::cout << std::endl;
+  for (uint i = 0; i < (unsigned)v_t.size(); i++) {
+    std::cout << "  ";
+    PrintOutput(&v_t[i], backend);
+  }
+}
+
+void OpOutputDebugger::PrintOutput(const std::shared_ptr<phi::DenseTensor> &dt,
+                                   Backend backend) {
+  OpOutputDebugger::PrintOutput(*dt, backend);
+}
+
+void OpOutputDebugger::PrintOutput(const paddle::optional<phi::DenseTensor> dt,
+                                   Backend backend) {
+  if (dt) {
+    OpOutputDebugger::PrintOutput(&(*dt), backend);
+  } else {
+    OpOutputDebugger::PrintOutput(*dt, backend);
+  }
+}
+
+void OpOutputDebugger::PrintOutput(
+    const std::unique_ptr<std::vector<phi::DenseTensor>> &v_t,
+    Backend backend) {
+  OpOutputDebugger::PrintOutput(*v_t, backend);
+}
+
+void OpOutputDebugger::PrintOutput(
+    const paddle::optional<std::vector<phi::DenseTensor>> v_t,
+    Backend backend) {
+  OpOutputDebugger::PrintOutput(*v_t, backend);
+}
+
+void OpOutputDebugger::PrintOutput(
+    const std::vector<const phi::DenseTensor *> &v_t, Backend backend) {
+  std::cout << "  std::vector<Tensor>:";
+  if (v_t.size() == 0) {
+    std::cout << " output is NOT INITIALIZED" << std::endl;
+    return;
+  }
+  std::cout << std::endl;
+  for (uint i = 0; i < (unsigned)v_t.size(); i++) {
+    std::cout << "  ";
+    PrintOutput(v_t[i], backend);
+  }
+}
+
+void OpOutputDebugger::PrintOutput(
+    const paddle::optional<std::vector<const phi::DenseTensor *>> &v_t,
+    Backend backend) {
+  OpOutputDebugger::PrintOutput(*v_t, backend);
+}
+
 }  // namespace experimental
 }  // namespace paddle

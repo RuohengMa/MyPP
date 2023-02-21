@@ -24,10 +24,46 @@ namespace experimental {
 
 class OpOutputDebugger {
  public:
+  // for SetKernelOutput return value
   static void PrintOutput(const phi::DenseTensor* dt, Backend backend);
   static void PrintOutput(const std::vector<phi::DenseTensor*>& v_t,
                           Backend backend);
+
+  // helper
+  static void PrintOutput(const std::vector<phi::DenseTensor>& v_t,
+                          Backend backend);
+
+  // for PrepareData return value
+  static void PrintOutput(const std::shared_ptr<phi::DenseTensor>& dt,
+                          Backend backend);
+  static void PrintOutput(const paddle::optional<phi::DenseTensor> dt,
+                          Backend backend);
+  static void PrintOutput(
+      const std::unique_ptr<std::vector<phi::DenseTensor>>& v_t,
+      Backend backend);
+  static void PrintOutput(
+      const paddle::optional<std::vector<phi::DenseTensor>> v_t,
+      Backend backend);
+
+  // for TensorToConstDenseTensorPtr return value
+  static void PrintOutput(const std::vector<const phi::DenseTensor*>& v_t,
+                          Backend backend);
+  static void PrintOutput(
+      const paddle::optional<std::vector<const phi::DenseTensor*>>& v_t,
+      Backend backend);
+
+  // ?
   static void PrintOutput(const phi::SelectedRows* sr, Backend backend) {
+    std::cout << "  SelectedRows: PRINTING NOT SUPPORTED" << std::endl;
+  }
+
+  // for PrepareDataForSelectedRows return value (unsupported SelectedRows)
+  static void PrintOutput(const std::shared_ptr<phi::SelectedRows>& sr,
+                          Backend backend) {
+    std::cout << "  SelectedRows: PRINTING NOT SUPPORTED" << std::endl;
+  }
+  static void PrintOutput(const paddle::optional<phi::SelectedRows>& sr,
+                          Backend backend) {
     std::cout << "  SelectedRows: PRINTING NOT SUPPORTED" << std::endl;
   }
 };

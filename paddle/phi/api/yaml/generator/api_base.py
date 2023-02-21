@@ -1179,6 +1179,12 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
     ):
         return None, None, None
 
+    def print_op_input(self):
+        return ""
+
+    def print_op_output(self):
+        return ""
+
     def gen_kernel_code(self, kernel_name, code_indent, inplace_flag=False):
         self.XPU_DY_ACC_DEBUG_kernel_name = kernel_name
         self.XPU_DY_ACC_DEBUG_code_indent = code_indent
@@ -1223,7 +1229,9 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  if(phi::RecordEvent::IsEnabled()){{
 {code_indent}    kernel_record_event = new phi::RecordEvent(\"{self.api} compute\", phi::TracerEventType::OperatorInner, 1);
 {code_indent}  }}
+{self.print_op_input()}
 {code_indent}    (*kernel_fn)({kernel_args}, {", ".join(outputs_args)});
+{self.print_op_output()}
 {code_indent}  if(kernel_record_event != nullptr){{
 {code_indent}    delete kernel_record_event;
 {code_indent}  }}
