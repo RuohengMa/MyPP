@@ -140,10 +140,10 @@ class BackwardAPI(BaseAPI):
                     == "const paddle::optional<std::vector<Tensor>>&"
                 ) and input_name not in self.inplace_map.values():
                     debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}_vec, kernel_backend);"""
+{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}_vec, dy_acc_debug_dev_place);"""
                 else:
                     debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}, kernel_backend);"""
+{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}, dy_acc_debug_dev_place);"""
         debug_code += f"""
 {code_indent}  }}
 {code_indent}"""
@@ -165,10 +165,11 @@ class BackwardAPI(BaseAPI):
 {code_indent}    global_id += 1;
 {code_indent}  }}
 {code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
-{code_indent}    std::cout << "output: " << std::endl;"""
+{code_indent}    std::cout << "output: " << std::endl;
+{code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;"""
         for i in range(size):
             debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, kernel_backend);"""
+{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, dy_acc_debug_dev_place);"""
         debug_code += f"""
 {code_indent}  }}
 {code_indent}"""
