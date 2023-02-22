@@ -16,7 +16,7 @@ import argparse
 import re
 
 import yaml
-from api_base import BaseAPI
+from api_base import PREFIX_TENSOR_NAME, BaseAPI
 
 
 class BackwardAPI(BaseAPI):
@@ -109,28 +109,69 @@ class BackwardAPI(BaseAPI):
         return result
 
     def gene_return_code(self):
-        return self.print_op_output()
+        return ""
 
-    def print_op_output(self):
-        size = len(self.kernel_outputs)
+    def print_op_input(self, code_indent=''):
+        size = len(self.inputs['names'])
         kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
         code_indent = self.XPU_DY_ACC_DEBUG_code_indent
         debug_code = f"""
-{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr) {{
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_INPUT") != nullptr) {{
 {code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
 {code_indent}    if (platform::is_xpu_place(phi::TransToPhiPlace(dy_acc_debug_dev_place))) {{
 {code_indent}      dev_ctx->Wait();
 {code_indent}    }}
 {code_indent}    std::string inplace_string = inplace ? "true" : "false";
 {code_indent}    std::cout << std::endl;
-{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: b-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: f-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
 {code_indent}    global_id += 1;
+{code_indent}    std::cout << "input: " << std::endl;"""
+        for i in range(size):
+            input_name = self.inputs['names'][i]
+            if (
+                self.kernel['param'] is None
+                and input_name in (self.inputs['names'] + self.attrs['names'])
+                or input_name in self.kernel['param']
+            ):
+                if (
+                    self.inputs['input_info'][input_name]
+                    == "const std::vector<Tensor>&"
+                    or self.inputs['input_info'][input_name]
+                    == "const paddle::optional<std::vector<Tensor>>&"
+                ) and input_name not in self.inplace_map.values():
+                    debug_code += f"""
+{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}_vec, kernel_backend);"""
+                else:
+                    debug_code += f"""
+{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}, kernel_backend);"""
+        debug_code += f"""
+{code_indent}  }}
+{code_indent}"""
+        return debug_code
+
+    def print_op_output(self):
+        size = len(self.kernel_outputs)
+        kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
+        code_indent = self.XPU_DY_ACC_DEBUG_code_indent
+        debug_code = f"""
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
+{code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
+{code_indent}    if (platform::is_xpu_place(phi::TransToPhiPlace(dy_acc_debug_dev_place))) {{
+{code_indent}      dev_ctx->Wait();
+{code_indent}    }}
+{code_indent}    std::string inplace_string = inplace ? "true" : "false";
+{code_indent}    std::cout << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: f-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    global_id += 1;
+{code_indent}  }}
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
 {code_indent}    std::cout << "output: " << std::endl;"""
         for i in range(size):
             debug_code += f"""
 {code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, kernel_backend);"""
         debug_code += f"""
-{code_indent}  }}"""
+{code_indent}  }}
+{code_indent}"""
         return debug_code
 
     def gene_api_declaration(self):

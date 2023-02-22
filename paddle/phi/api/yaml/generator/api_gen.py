@@ -151,34 +151,26 @@ class ForwardAPI(BaseAPI):
 
     def gene_return_code(self):
         if self.is_dygraph_api or len(self.intermediate_outs) == 0:
-            return self.print_op_output() + "return api_output;"
+            return "return api_output;"
         else:
             return_out_list = []
             for i, name in enumerate(self.outputs['names']):
                 if name.split('@')[0] not in self.intermediate_outs:
                     return_out_list.append(i)
             if len(return_out_list) == 1:
-                return (
-                    self.print_op_output()
-                    + f"return std::get<{return_out_list[0]}>(api_output);"
-                )
+                return f"return std::get<{return_out_list[0]}>(api_output);"
             else:
                 selected_code = [
                     f"std::get<{i}>(api_output)" for i in return_out_list
                 ]
-            return (
-                self.print_op_output()
-                + 'return std::make_tuple('
-                + ", ".join(selected_code)
-                + ');'
-            )
+            return 'return std::make_tuple(' + ", ".join(selected_code) + ');'
 
-    def print_op_output(self):
-        size = len(self.kernel_outputs)
+    def print_op_input(self, code_indent=''):
+        size = len(self.inputs['names'])
         kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
         code_indent = self.XPU_DY_ACC_DEBUG_code_indent
         debug_code = f"""
-{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr) {{
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_INPUT") != nullptr) {{
 {code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
 {code_indent}    if (platform::is_xpu_place(phi::TransToPhiPlace(dy_acc_debug_dev_place))) {{
 {code_indent}      dev_ctx->Wait();
@@ -187,6 +179,46 @@ class ForwardAPI(BaseAPI):
 {code_indent}    std::cout << std::endl;
 {code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: f-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
 {code_indent}    global_id += 1;
+{code_indent}    std::cout << "input: " << std::endl;"""
+        for i in range(size):
+            input_name = self.inputs['names'][i]
+            if (
+                self.kernel['param'] is None
+                and input_name in (self.inputs['names'] + self.attrs['names'])
+                or input_name in self.kernel['param']
+            ):
+                if (
+                    self.inputs['input_info'][input_name]
+                    == "const std::vector<Tensor>&"
+                    or self.inputs['input_info'][input_name]
+                    == "const paddle::optional<std::vector<Tensor>>&"
+                ) and input_name not in self.inplace_map.values():
+                    debug_code += f"""
+{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}_vec, kernel_backend);"""
+                else:
+                    debug_code += f"""
+{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}, kernel_backend);"""
+        debug_code += f"""
+{code_indent}  }}
+{code_indent}"""
+        return debug_code
+
+    def print_op_output(self):
+        size = len(self.kernel_outputs)
+        kernel_name = self.XPU_DY_ACC_DEBUG_kernel_name
+        code_indent = self.XPU_DY_ACC_DEBUG_code_indent
+        debug_code = f"""
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
+{code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
+{code_indent}    if (platform::is_xpu_place(phi::TransToPhiPlace(dy_acc_debug_dev_place))) {{
+{code_indent}      dev_ctx->Wait();
+{code_indent}    }}
+{code_indent}    std::string inplace_string = inplace ? "true" : "false";
+{code_indent}    std::cout << std::endl;
+{code_indent}    std::cout << "op_name: " << phi::TransToFluidOpName("{kernel_name}") << ", global_id: f-" << global_id << ", place: " << dy_acc_debug_dev_place << ", dtype: " << kernel_data_type << ", inplace: " << inplace_string << std::endl;
+{code_indent}    global_id += 1;
+{code_indent}  }}
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
 {code_indent}    std::cout << "output: " << std::endl;"""
         for i in range(size):
             debug_code += f"""
