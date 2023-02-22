@@ -34,7 +34,10 @@ void DropoutRawKernel(const Context& dev_ctx,
                       bool fix_seed,
                       DenseTensor* out,
                       DenseTensor* mask) {
-  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr) {
+  bool debugging = std::getenv("XPU_DY_ACC_DEBUG") != nullptr ||
+                   std::getenv("XPU_DY_ACC_DEBUG_INPUT") != nullptr ||
+                   std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr;
+  if (debugging) {
     seed = 1024;
     fix_seed = true;
     static int flag = true;
@@ -48,8 +51,7 @@ void DropoutRawKernel(const Context& dev_ctx,
   const auto* x_data = x.data<T>();
   auto* y_data = dev_ctx.template Alloc<T>(y);
 
-  float dropout_prob =
-      std::getenv("XPU_DY_ACC_DEBUG") != nullptr ? 0.f : p.to<float>();
+  float dropout_prob = debugging ? 0.f : p.to<float>();
 
   int is_upscale = (mode == "upscale_in_train");
 
