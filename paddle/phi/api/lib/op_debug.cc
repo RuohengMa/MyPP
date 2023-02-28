@@ -136,19 +136,6 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       std::cout << "INT64 " << sum_res << ", dimension is (" << dt->dims()
                 << "), place is " << dt->place() << std::endl;
       free(cpu_res);
-    } else if (dt->dtype() == DataType::FLOAT16) {
-      double *cpu_res = new double[dt->numel()];
-      xpu_memcpy(cpu_res,
-                 dt->dy_acc_debug_data(),
-                 sizeof(DataType::FLOAT16) * dt->numel(),
-                 XPUMemcpyKind::XPU_DEVICE_TO_HOST);
-      double sum_res = 0;
-      for (int i = 0; i < dt->numel(); i++) {
-        sum_res += static_cast<double>(cpu_res[i]);
-      }
-      std::cout << "FLOAT16 " << sum_res << ", dimension is (" << dt->dims()
-                << "), place is " << dt->place() << std::endl;
-      free(cpu_res);
     } else if (dt->dtype() == DataType::BOOL) {
       uint8_t *cpu_res = new uint8_t[dt->numel()];
       xpu_memcpy(cpu_res,
