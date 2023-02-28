@@ -23,7 +23,7 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
                                    Backend backend) {
   std::cout << "  Tensor: ";
   if (!dt || !dt->initialized()) {
-    std::cout << "output is NOT INITIALIZED" << std::endl;
+    std::cout << "NOT INITIALIZED" << std::endl;
     return;
   }
   if (backend == Backend::CPU) {
@@ -34,8 +34,8 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output FLOAT32 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "FLOAT32 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
     } else if (dt->dtype() == DataType::INT32) {
       const int32_t *cpu_res =
           static_cast<const int32_t *>(dt->dy_acc_debug_data());
@@ -43,8 +43,8 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output INT32 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "INT32 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
     } else if (dt->dtype() == DataType::FLOAT64) {
       const double *cpu_res =
           static_cast<const double *>(dt->dy_acc_debug_data());
@@ -52,8 +52,8 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output FLOAT64 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "FLOAT64 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
     } else if (dt->dtype() == DataType::INT64) {
       const int64_t *cpu_res =
           static_cast<const int64_t *>(dt->dy_acc_debug_data());
@@ -61,12 +61,12 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output INT64 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "INT64 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
     } else if (dt->dtype() == DataType::BOOL) {
       const bool *cpu_res = static_cast<const bool *>(dt->dy_acc_debug_data());
       std::string cpu_res_str;
-      std::cout << "output BOOL " << std::endl;
+      std::cout << "BOOL " << std::endl;
       for (int i = 0; i < dt->numel(); i++) {
         if (cpu_res[i] == 0) {
           cpu_res_str = "false, ";
@@ -94,8 +94,8 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output FLOAT32 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "FLOAT32 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
       free(cpu_res);
     } else if (dt->dtype() == DataType::INT32) {
       int32_t *cpu_res = new int32_t[dt->numel()];
@@ -107,8 +107,8 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output INT32 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "INT32 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
       free(cpu_res);
     } else if (dt->dtype() == DataType::FLOAT64) {
       double *cpu_res = new double[dt->numel()];
@@ -120,8 +120,8 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output FLOAT64 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "FLOAT64 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
       free(cpu_res);
     } else if (dt->dtype() == DataType::INT64) {
       int64_t *cpu_res = new int64_t[dt->numel()];
@@ -133,8 +133,21 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
       for (int i = 0; i < dt->numel(); i++) {
         sum_res += cpu_res[i];
       }
-      std::cout << "output INT64 " << sum_res << ", dimension is ("
-                << dt->dims() << "), place is " << dt->place() << std::endl;
+      std::cout << "INT64 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
+      free(cpu_res);
+    } else if (dt->dtype() == DataType::FLOAT16) {
+      double *cpu_res = new double[dt->numel()];
+      xpu_memcpy(cpu_res,
+                 dt->dy_acc_debug_data(),
+                 sizeof(DataType::FLOAT16) * dt->numel(),
+                 XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+      double sum_res = 0;
+      for (int i = 0; i < dt->numel(); i++) {
+        sum_res += static_cast<double>(cpu_res[i]);
+      }
+      std::cout << "FLOAT16 " << sum_res << ", dimension is (" << dt->dims()
+                << "), place is " << dt->place() << std::endl;
       free(cpu_res);
     } else if (dt->dtype() == DataType::BOOL) {
       uint8_t *cpu_res = new uint8_t[dt->numel()];
@@ -143,7 +156,7 @@ void OpOutputDebugger::PrintOutput(const phi::DenseTensor *dt,
                  sizeof(uint8_t) * dt->numel(),
                  XPUMemcpyKind::XPU_DEVICE_TO_HOST);
       std::string cpu_res_str;
-      std::cout << "output BOOL " << std::endl;
+      std::cout << "BOOL " << std::endl;
       for (int i = 0; i < dt->numel(); i++) {
         if (cpu_res[i] == 0) {
           cpu_res_str = "false, ";
@@ -171,7 +184,7 @@ void OpOutputDebugger::PrintOutput(const std::vector<phi::DenseTensor *> &v_t,
                                    Backend backend) {
   std::cout << "  std::vector<Tensor>:";
   if (v_t.size() == 0) {
-    std::cout << " output is NOT INITIALIZED" << std::endl;
+    std::cout << " NOT INITIALIZED" << std::endl;
     return;
   }
   std::cout << std::endl;
@@ -185,7 +198,7 @@ void OpOutputDebugger::PrintOutput(const std::vector<phi::DenseTensor> &v_t,
                                    Backend backend) {
   std::cout << "  std::vector<Tensor>:";
   if (v_t.size() == 0) {
-    std::cout << " output is NOT INITIALIZED" << std::endl;
+    std::cout << " NOT INITIALIZED" << std::endl;
     return;
   }
   std::cout << std::endl;
@@ -230,7 +243,7 @@ void OpOutputDebugger::PrintOutput(
     const std::vector<const phi::DenseTensor *> &v_t, Backend backend) {
   std::cout << "  std::vector<Tensor>:";
   if (v_t.size() == 0) {
-    std::cout << " output is NOT INITIALIZED" << std::endl;
+    std::cout << " NOT INITIALIZED" << std::endl;
     return;
   }
   std::cout << std::endl;
