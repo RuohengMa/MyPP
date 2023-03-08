@@ -1183,18 +1183,39 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
         self, out_dtype_list, code_indent='', inplace_flag=False
     ):
         return ''
-    
+
     def conditionally_print_cast(self, code_indent='  '):
         if self.api == "cast":
             return f"""
 {code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG_CAST") != nullptr) {{"""
         else:
-            return "{"
+            return f"""
+{code_indent}  {{"""
 
     def print_op_input(self):
         return ""
 
     def print_op_output(self):
+        return ""
+
+    def gene_debug_input(self, kernel_dispatch, code_indent):
+        return ""
+
+    def gene_debug_output(
+        self,
+        out_dtype_list,
+        out_tensor_type_list=None,
+        code_indent='',
+        inplace_flag=False,
+    ):
+        return ""
+
+    def gene_debug_kernel(
+        self, kernel_name, kernel_signature, kernel_args, outputs_args
+    ):
+        return ""
+
+    def gene_debug_infer_meta(self, kernel_output_names, code_indent) -> str:
         return ""
 
     def gen_kernel_code(self, kernel_name, code_indent, inplace_flag=False):
@@ -1244,6 +1265,10 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {self.conditionally_print_cast()}
 {self.print_op_input()}
   }}
+{self.gene_debug_input(kernel_dispatch, code_indent)}
+{self.gene_debug_output(self.outputs['types'], out_tensor_type_list, code_indent, inplace_flag)}
+{self.gene_debug_infer_meta(kernel_output_names, code_indent)}
+{self.gene_debug_kernel(kernel_name, kernel_signature, kernel_args, outputs_args)}
 {code_indent}    (*kernel_fn)({kernel_args}, {", ".join(outputs_args)});
 {self.conditionally_print_cast()}
 {self.print_op_output()}
@@ -1357,3 +1382,8 @@ PADDLE_API {self.get_return_type()} {self.api}({params_code}) {{
                 invoke_code = self.invoke
                 params_code = self.get_define_args()
             return self.gene_invoke_code(invoke_code, params_code)
+
+
+def set_prefix_tensor_name(name):
+    global PREFIX_TENSOR_NAME
+    PREFIX_TENSOR_NAME = name

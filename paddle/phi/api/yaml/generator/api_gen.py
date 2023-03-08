@@ -16,7 +16,7 @@ import argparse
 import re
 
 import yaml
-from api_base import PREFIX_TENSOR_NAME, BaseAPI
+from api_base import PREFIX_TENSOR_NAME, BaseAPI, set_prefix_tensor_name
 
 inplace_out_type_map = {
     "Tensor": "Tensor&",
@@ -27,6 +27,8 @@ inplace_optional_out_type_map = {
     "Tensor": "paddle::optional<Tensor>&",
     "std::vector<Tensor>": "paddle::optional<std::vector<Tensor>>&",
 }
+
+PREFIX_OUTPUT = "debug_"
 
 
 class ForwardAPI(BaseAPI):
@@ -223,11 +225,368 @@ class ForwardAPI(BaseAPI):
 {code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;"""
         for i in range(size):
             debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, dy_acc_debug_dev_place);"""
+{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, dy_acc_debug_dev_place);
+{code_indent}"""
+        for i in range(size):
+            debug_code += f"""
+{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_debug_outputs[i]}, Backend::CPU);
+{code_indent}"""
         debug_code += f"""
 {code_indent}  }}
 {code_indent}"""
         return debug_code
+
+    def gene_debug_input(self, kernel_dispatch, code_indent):
+        set_prefix_tensor_name("debug_input_")
+        global PREFIX_TENSOR_NAME
+        PREFIX_TENSOR_NAME = "debug_input_"
+        input_tensors, kernel_args, kernel_signature = self.get_kernel_args(
+            kernel_dispatch, code_indent
+        )
+        input_tensors = re.sub(
+            r"kernel\.InputAt\(([0-9]+)\)",
+            r"*(new phi::TensorArgDef(Backend::CPU, kernel.InputAt(\1).layout, kernel.InputAt(\1).dtype, kernel.InputAt(\1).type_index))",
+            input_tensors,
+        )
+
+        pattern = rf"std::vector\<const phi::DenseTensor\*\> {PREFIX_TENSOR_NAME}([a-z|_|0-9]+) = TensorToConstDenseTensorPtr\([a-z|_|0-9]+\);"
+        sub_str = rf"""
+{code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, phi::TensorArgDef(Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)), {{false, false, true, false}});
+{code_indent}  std::vector<const phi::DenseTensor*> {PREFIX_TENSOR_NAME}\1({PREFIX_TENSOR_NAME}\1_vec->size());
+{code_indent}  for (size_t i = 0; i < {PREFIX_TENSOR_NAME}\1.size(); ++i) {{
+{code_indent}    {PREFIX_TENSOR_NAME}\1[i] = &{PREFIX_TENSOR_NAME}\1_vec->at(i);
+{code_indent}  }}"""
+        input_tensors = re.sub(pattern, sub_str, input_tensors)
+
+        pattern = rf"paddle::optional\<std::vector\<const phi::DenseTensor\*\>\> {PREFIX_TENSOR_NAME}([a-z|_|0-9]+) = TensorToConstDenseTensorPtr\([a-z|_|0-9]+\);"
+        sub_str = rf"""
+{code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, phi::TensorArgDef(Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)), {{false, false, true, false}});
+{code_indent}  paddle::optional<std::vector<const phi::DenseTensor*>> {PREFIX_TENSOR_NAME}\1;
+{code_indent}  if ({PREFIX_TENSOR_NAME}\1_vec){{
+{code_indent}    {PREFIX_TENSOR_NAME}\1 = paddle::optional<std::vector<const phi::DenseTensor*>>({PREFIX_TENSOR_NAME}\1_vec->size());
+{code_indent}    for (size_t i = 0; i < {PREFIX_TENSOR_NAME}\1_vec->size(); ++i) {{
+{code_indent}      {PREFIX_TENSOR_NAME}\1->at(i) = &{PREFIX_TENSOR_NAME}\1_vec->at(i);
+{code_indent}    }}
+{code_indent}  }}"""
+
+        input_tensors = re.sub(pattern, sub_str, input_tensors)
+
+        set_prefix_tensor_name("input_")
+        PREFIX_TENSOR_NAME = "input_"
+
+        return input_tensors
+
+    def gene_debug_output(
+        self,
+        out_dtype_list,
+        out_tensor_type_list=None,
+        code_indent='',
+        inplace_flag=False,
+    ):
+        kernel_output = []
+        output_names = []
+        output_create = ""
+        return_type = self.get_return_type_with_intermediate(inplace_flag)
+        return_type = return_type.replace("&", "")
+
+        if len(out_dtype_list) == 1:
+            kernel_output.append(PREFIX_OUTPUT + 'kernel_out')
+            output_names.append(PREFIX_OUTPUT + 'kernel_out')
+
+            set_out_func = (
+                'new phi::DenseTensor()'
+                if out_tensor_type_list is None
+                or out_tensor_type_list[0] == 'dense'
+                else 'new phi::SelectedRows()'
+            )
+            if return_type == 'std::vector<Tensor>':
+                assert (
+                    self.outputs['out_size_expr'][0] is not None
+                ), f"{self.api}: The out size expr : '{{expr}}' should be set when output has Tensor[]. You can refer 'split' api."
+                output_create = (
+                    output_create
+                    + f"""
+{code_indent}  auto {PREFIX_OUTPUT}kernel_out = std::vector<phi::DenseTensor*>({self.outputs['out_size_expr'][0]});"""
+                )
+
+            else:
+                output_create = (
+                    output_create
+                    + f"""
+{code_indent}  auto {PREFIX_OUTPUT}kernel_out = {set_out_func};"""
+                )
+                if (
+                    not inplace_flag
+                    and self.view_map is not None
+                    and self.outputs['names'][0] in self.view_map
+                ):
+                    output_create += f"""
+    {code_indent}    {PREFIX_OUTPUT}kernel_out->ShareBufferWith(*{PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.view_map[self.outputs['names'][0]]});
+    """
+
+        elif len(out_dtype_list) > 1:
+
+            for i in range(len(out_dtype_list)):
+                kernel_output.append(f'{PREFIX_OUTPUT}kernel_out_{i}')
+                output_names.append(f'{PREFIX_OUTPUT}kernel_out_{i}')
+
+                if out_dtype_list[i] == 'std::vector<Tensor>':
+                    assert (
+                        self.outputs['out_size_expr'][i] is not None
+                    ), f"{self.api}: The out size expr : '{{expr}}' should be set when output has Tensor[]. You can refer 'split' api."
+                    # Special case for inplace vector and inplace optional<vector>
+                    '''
+                    if self.outputs['names'][i] in self.inplace_map and self.inplace_map[self.outputs['names'][i]] in self.optional_vars:
+                        set_out_func = "SetInplaceOptionalVectorKernelOutput"
+                        output_create = (
+                            output_create
+                            + f"""std::vector<paddle::experimental::Tensor> tmp_{i}({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->begin(), {PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->end());"""
+                            + f"""
+    {code_indent}  auto {PREFIX_OUTPUT}kernel_out_{i} = {set_out_func}({self.outputs['out_size_expr'][i]}, &tmp_{i});
+    """
+                        )
+                    elif self.outputs['names'][i] in self.inplace_map:
+                        set_out_func = "SetInplaceVectorKernelOutput"
+                        output_create = (
+                            output_create
+                            + f"""std::vector<paddle::experimental::Tensor> tmp_{i}({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->begin(), {PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->end());"""
+                            + f"""
+    {code_indent}  auto {PREFIX_OUTPUT}kernel_out_{i} = {set_out_func}({self.outputs['out_size_expr'][i]}, &tmp_{i});
+    """
+                        )
+                    '''
+                    if (
+                        self.outputs['names'][i] in self.inplace_map
+                        and self.inplace_map[self.outputs['names'][i]]
+                        in self.optional_vars
+                    ):
+                        output_create = (
+                            output_create
+                            + f"""
+    {code_indent}  std::vector<phi::DenseTensor*> {PREFIX_OUTPUT}kernel_out_{i};
+    {code_indent}  if ({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}) {{
+    {code_indent}    for (size_t i = 0; i < {PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}->size(); ++i) {{
+    {code_indent}      {PREFIX_OUTPUT}kernel_out_{i}.push_back(const_cast<phi::DenseTensor*>({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}.get_ptr()->at(i)));
+    {code_indent}     }}
+    {code_indent}  }}"""
+                        )
+                    elif self.outputs['names'][i] in self.inplace_map:
+                        output_create = (
+                            output_create
+                            + f"""
+    {code_indent}  std::vector<phi::DenseTensor*> {PREFIX_OUTPUT}kernel_out_{i}({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}.size());
+    {code_indent}  for (size_t i = 0; i < {PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}.size(); ++i) {{
+    {code_indent}    {PREFIX_OUTPUT}kernel_out_{i}[i] = const_cast<phi::DenseTensor*>({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}[i]);
+    {code_indent}  }}"""
+                        )
+                    else:
+                        output_create = (
+                            output_create
+                            + f"""
+    {code_indent}  auto {PREFIX_OUTPUT}kernel_out_{i} = std::vector<phi::DenseTensor*>({self.outputs['out_size_expr'][i]});"""
+                        )
+
+                elif out_dtype_list[i] == 'Tensor':
+                    set_out_func = (
+                        'new phi::DenseTensor()'
+                        if out_tensor_type_list is None
+                        or out_tensor_type_list[i] == 'dense'
+                        else 'new phi::SelectedRows()'
+                    )
+                    output_create = (
+                        output_create
+                        + f"""
+{code_indent}  auto {PREFIX_OUTPUT}kernel_out_{i} = {set_out_func};"""
+                    )
+                    if (
+                        not inplace_flag
+                        and self.view_map is not None
+                        and self.outputs['names'][i] in self.view_map
+                    ):
+                        output_create = (
+                            output_create
+                            + f"""
+    {code_indent}  {PREFIX_OUTPUT}kernel_out_{i}->ShareBufferWith(*{PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.view_map[self.outputs['names'][i]]});
+    {code_indent}  {PREFIX_OUTPUT}kernel_out_{i}->ShareInplaceVersionCounterWith(*{PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.view_map[self.outputs['names'][i]]});"""
+                        )
+
+        self.kernel_debug_outputs = kernel_output
+
+        return output_create
+
+    def gene_debug_infer_meta(self, kernel_output_names, code_indent) -> str:
+        PREFIX_OUTPUT = "debug_"
+        PREFIX_META_TENSOR_NAME = "meta_"
+
+        input_names = self.inputs['names']
+        attr_names = self.attrs['names']
+        infer_meta = self.infer_meta
+
+        infer_meta_params = (
+            infer_meta['param']
+            if infer_meta['param'] is not None
+            else input_names + attr_names
+        )
+        # generate meta tensors
+        meta_tensor_code = ""
+        param_code = ""
+        for param in infer_meta_params:
+            if param in input_names:
+                if self.inputs['input_info'][param] == "const Tensor&":
+                    param_code = (
+                        param_code
+                        + "MakeMetaTensor(*"
+                        + PREFIX_OUTPUT
+                        + PREFIX_TENSOR_NAME
+                        + param
+                        + "), "
+                    )
+                elif (
+                    self.inputs['input_info'][param]
+                    == "const std::vector<Tensor>&"
+                ):
+                    meta_tensor_code = (
+                        meta_tensor_code
+                        + f"""
+{code_indent}  auto {PREFIX_OUTPUT}{param}_meta_vec = MakeMetaTensor({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{param});
+{code_indent}  std::vector<const phi::MetaTensor*> {PREFIX_OUTPUT}{param}_metas({PREFIX_OUTPUT}{param}_meta_vec.size());
+{code_indent}  for (size_t i = 0; i < {PREFIX_OUTPUT}{param}_meta_vec.size(); ++i) {{
+{code_indent}    {PREFIX_OUTPUT}{param}_metas[i] = &{PREFIX_OUTPUT}{param}_meta_vec[i];
+{code_indent}  }}
+"""
+                    )
+                    param_code = param_code + PREFIX_OUTPUT + param + "_metas, "
+                elif (
+                    self.inputs['input_info'][param]
+                    == "const paddle::optional<std::vector<Tensor>>&"
+                ):
+                    meta_tensor_code = (
+                        meta_tensor_code
+                        + f"""
+{code_indent}  auto {PREFIX_OUTPUT}{param}_meta_vec = MakeMetaTensor({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{param});
+{code_indent}  paddle::optional<std::vector<const phi::MetaTensor*>> {PREFIX_OUTPUT}{param}_metas({PREFIX_OUTPUT}{param}_meta_vec.size());
+{code_indent}  for (size_t i = 0; i < {PREFIX_OUTPUT}{param}_meta_vec.size(); ++i) {{
+{code_indent}    {PREFIX_OUTPUT}{param}_metas->at(i) = &{PREFIX_OUTPUT}{param}_meta_vec[i];
+{code_indent}  }}
+"""
+                    )
+                    param_code = param_code + PREFIX_OUTPUT + param + "_metas, "
+                elif param in self.optional_vars:
+                    param_code = (
+                        param_code
+                        + "MakeMetaTensor("
+                        + PREFIX_OUTPUT
+                        + PREFIX_TENSOR_NAME
+                        + param
+                        + "), "
+                    )
+                else:
+                    raise ValueError(
+                        f"{self.api} : Param of infer_meta error : {self.inputs['input_info'][param]} type is not supported."
+                    )
+            elif param in attr_names:
+                param_code = param_code + param + ", "
+            elif isinstance(param, str):
+                param_code = param_code + "\"" + param + "\", "
+            elif isinstance(param, bool):
+                param_code = param_code + str(param).lower() + ", "
+            else:
+                param_code = param_code + str(param) + ", "
+
+        for i, out_name in enumerate(kernel_output_names):
+            if self.outputs['types'][i] == 'std::vector<Tensor>':
+                '''
+                if self.outputs['names'][i] in self.inplace_map and self.inplace_map[self.outputs['names'][i]] in self.optional_vars:
+                    out_name = re.sub("debug_", "", out_name)
+                    param_code = param_code + out_name + '_metas, '
+                '''
+                if True:
+                    meta_tensor_code = (
+                        meta_tensor_code
+                        + f"""
+    {code_indent}  auto {PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec = MakeMetaTensor({PREFIX_OUTPUT}{out_name});
+    {code_indent}  std::vector<phi::MetaTensor*> {PREFIX_OUTPUT}{out_name}_metas({PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec.size());
+    {code_indent}  for (size_t i = 0; i < {PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec.size(); ++i) {{
+    {code_indent}    {PREFIX_OUTPUT}{out_name}_metas[i] = {PREFIX_OUTPUT}{out_name}[i] ? &{PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec[i] : nullptr;
+    {code_indent}  }}"""
+                    )
+
+                    param_code = param_code + out_name + '_metas, '
+            else:
+                meta_tensor_code = (
+                    meta_tensor_code
+                    + code_indent
+                    + "  phi::MetaTensor "
+                    + PREFIX_OUTPUT
+                    + out_name.replace('kernel_', PREFIX_META_TENSOR_NAME)
+                    + "("
+                    + PREFIX_OUTPUT
+                    + out_name
+                    + ");\n"
+                )
+                meta_tensor_code = (
+                    meta_tensor_code
+                    + PREFIX_OUTPUT
+                    + out_name.replace('kernel_', PREFIX_META_TENSOR_NAME)
+                    + f".share_meta({out_name});"
+                )
+                if len(kernel_output_names) == 1:
+                    param_code = (
+                        param_code
+                        + f"&{PREFIX_OUTPUT}{out_name.replace('kernel_', PREFIX_META_TENSOR_NAME)}, "
+                    )
+                else:
+                    param_code = (
+                        param_code
+                        + f"{PREFIX_OUTPUT}{out_name} ? &{PREFIX_OUTPUT}{out_name.replace('kernel_', PREFIX_META_TENSOR_NAME)} : nullptr, "
+                    )
+
+        param_code = param_code[:-2]
+        return f"""{meta_tensor_code}
+{code_indent}  phi::{infer_meta['func']}({param_code});
+"""
+
+    def gene_debug_kernel(
+        self, kernel_name, kernel_signature, kernel_args, outputs_args
+    ):
+        code_indent = "  "
+        # kernel_args_tmp = re.sub(r"input\_([a-z_]+)", r"\1", kernel_args)
+        kernel_args_tmp = re.sub(r"\*?input_([a-z]+)", r"\1", kernel_args)
+        kernel_args_tmp = kernel_args_tmp.split(", ")
+        kernel_args = kernel_args.split(", ")
+        for idx, arg in enumerate(kernel_args_tmp):
+            if arg in self.inputs['names']:
+                kernel_args[idx] = kernel_args[idx].replace(
+                    "input", "debug_input", 1
+                )
+        kernel_args = ", ".join(kernel_args)
+
+        kernel_args = kernel_args.replace("dev_ctx", "debug_dev_ctx")
+        outputs_args = list(
+            map(lambda s: s.replace("kernel_", "debug_kernel_"), outputs_args)
+        )
+
+        code = ""
+        '''
+        debug_kernel_args = kernel_args.replace("*", "")
+        debug_kernel_args = debug_kernel_args.split(", ")
+        code = f"{code_indent}  OpOutputDebugger::PrintOutput({debug_kernel_args[1]}, Backend::CPU);" if debug_kernel_args[1].startswith("debug_input") else f"std::cout << \"{debug_kernel_args[1]}\" << std::endl;"
+        if len(debug_kernel_args) > 2:
+            code += f"{code_indent}  OpOutputDebugger::PrintOutput({debug_kernel_args[2]}, Backend::CPU);" if debug_kernel_args[2].startswith("debug_input") else f"std::cout << \"{debug_kernel_args[2]}\" << std::endl;"
+        '''
+        return (
+            code
+            + f"""
+{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG_DIFF") != nullptr) {{
+{code_indent}  auto {PREFIX_OUTPUT}kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
+{code_indent}      "{kernel_name}", {{Backend::CPU, kernel_layout, kernel_data_type}});
+{code_indent}  const auto& {PREFIX_OUTPUT}kernel = {PREFIX_OUTPUT}kernel_result.kernel;
+{code_indent}  auto* {PREFIX_OUTPUT}dev_ctx = GetDeviceContextByBackend(Backend::CPU);
+{code_indent}  using {PREFIX_OUTPUT}kernel_signature = {kernel_signature};
+{code_indent}  auto* {PREFIX_OUTPUT}kernel_fn = {PREFIX_OUTPUT}kernel.GetVariadicKernelFn<{PREFIX_OUTPUT}kernel_signature>();
+{code_indent}  (*{PREFIX_OUTPUT}kernel_fn)({kernel_args}, {", ".join(outputs_args)});
+{code_indent}}}"""
+        )
 
     def gene_output(
         self,
