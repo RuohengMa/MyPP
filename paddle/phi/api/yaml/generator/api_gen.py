@@ -196,10 +196,10 @@ class ForwardAPI(BaseAPI):
                     == "const paddle::optional<std::vector<Tensor>>&"
                 ) and input_name not in self.inplace_map.values():
                     debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}_vec, dy_acc_debug_dev_place);"""
+{code_indent}    OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}_vec, dy_acc_debug_dev_place);"""
                 else:
                     debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}, dy_acc_debug_dev_place);"""
+{code_indent}    OpOutputDebugger::PrintOutput({PREFIX_TENSOR_NAME}{self.inputs['names'][i]}, dy_acc_debug_dev_place);"""
         debug_code += f"""
 {code_indent}  }}
 {code_indent}"""
@@ -221,16 +221,16 @@ class ForwardAPI(BaseAPI):
 {code_indent}    global_id += 1;
 {code_indent}  }}
 {code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
-{code_indent}    std::cout << "output: " << std::endl;
+{code_indent}    std::cout << "CPU output: " << std::endl;
 {code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;"""
         for i in range(size):
             debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, dy_acc_debug_dev_place);
-{code_indent}"""
+{code_indent}    OpOutputDebugger::PrintOutput({self.kernel_debug_outputs[i]}, Backend::CPU);"""
+        debug_code += f"""
+{code_indent}    std::cout << "XPU output: " << std::endl;"""
         for i in range(size):
             debug_code += f"""
-{code_indent}  OpOutputDebugger::PrintOutput({self.kernel_debug_outputs[i]}, Backend::CPU);
-{code_indent}"""
+{code_indent}    OpOutputDebugger::PrintOutput({self.kernel_outputs[i]}, dy_acc_debug_dev_place);"""
         debug_code += f"""
 {code_indent}  }}
 {code_indent}"""
@@ -240,15 +240,29 @@ class ForwardAPI(BaseAPI):
         set_prefix_tensor_name("debug_input_")
         global PREFIX_TENSOR_NAME
         PREFIX_TENSOR_NAME = "debug_input_"
+
+        # reuse code and modify it using string substitution
         input_tensors, kernel_args, kernel_signature = self.get_kernel_args(
             kernel_dispatch, code_indent
         )
+
+        # prefix input name with 'debug_'
         input_tensors = re.sub(
             r"kernel\.InputAt\(([0-9]+)\)",
             r"*(new phi::TensorArgDef(Backend::CPU, kernel.InputAt(\1).layout, kernel.InputAt(\1).dtype, kernel.InputAt(\1).type_index))",
             input_tensors,
         )
 
+        # delete code for op info recording since it is not necessary when debugging accuracy issues
+        input_tensors = re.sub(
+            r"if\(phi::RecordOpInfoSupplement::IsEnabled\(\)\)((.|\n)*)",
+            "",
+            input_tensors,
+        )
+
+        # all debug_input should be a deep copy of the api input tensor to avoid divergence of CPU and XPU inputs
+        # PrepareData and PrepareDataForSelectedRows have already fulfilled this requirement, while TensorToConstDenseTensorPtr does not
+        # so it is necessary to modify it
         pattern = rf"std::vector\<const phi::DenseTensor\*\> {PREFIX_TENSOR_NAME}([a-z|_|0-9]+) = TensorToConstDenseTensorPtr\([a-z|_|0-9]+\);"
         sub_str = rf"""
 {code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, phi::TensorArgDef(Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)), {{false, false, true, false}});
@@ -334,27 +348,7 @@ class ForwardAPI(BaseAPI):
                     assert (
                         self.outputs['out_size_expr'][i] is not None
                     ), f"{self.api}: The out size expr : '{{expr}}' should be set when output has Tensor[]. You can refer 'split' api."
-                    # Special case for inplace vector and inplace optional<vector>
-                    '''
-                    if self.outputs['names'][i] in self.inplace_map and self.inplace_map[self.outputs['names'][i]] in self.optional_vars:
-                        set_out_func = "SetInplaceOptionalVectorKernelOutput"
-                        output_create = (
-                            output_create
-                            + f"""std::vector<paddle::experimental::Tensor> tmp_{i}({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->begin(), {PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->end());"""
-                            + f"""
-    {code_indent}  auto {PREFIX_OUTPUT}kernel_out_{i} = {set_out_func}({self.outputs['out_size_expr'][i]}, &tmp_{i});
-    """
-                        )
-                    elif self.outputs['names'][i] in self.inplace_map:
-                        set_out_func = "SetInplaceVectorKernelOutput"
-                        output_create = (
-                            output_create
-                            + f"""std::vector<paddle::experimental::Tensor> tmp_{i}({PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->begin(), {PREFIX_OUTPUT}{PREFIX_TENSOR_NAME}{self.inplace_map[self.outputs['names'][i]]}_vec->end());"""
-                            + f"""
-    {code_indent}  auto {PREFIX_OUTPUT}kernel_out_{i} = {set_out_func}({self.outputs['out_size_expr'][i]}, &tmp_{i});
-    """
-                        )
-                    '''
+
                     if (
                         self.outputs['names'][i] in self.inplace_map
                         and self.inplace_map[self.outputs['names'][i]]
@@ -526,9 +520,10 @@ class ForwardAPI(BaseAPI):
                 )
                 meta_tensor_code = (
                     meta_tensor_code
+                    + "  "
                     + PREFIX_OUTPUT
                     + out_name.replace('kernel_', PREFIX_META_TENSOR_NAME)
-                    + f".share_meta({out_name});"
+                    + f".share_meta({out_name});\n"
                 )
                 if len(kernel_output_names) == 1:
                     param_code = (
@@ -577,7 +572,7 @@ class ForwardAPI(BaseAPI):
         return (
             code
             + f"""
-{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG_DIFF") != nullptr) {{
+{code_indent}if (std::getenv("XPU_DY_ACC_DEBUG_DIFF") != nullptr) {{
 {code_indent}  auto {PREFIX_OUTPUT}kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
 {code_indent}      "{kernel_name}", {{Backend::CPU, kernel_layout, kernel_data_type}});
 {code_indent}  const auto& {PREFIX_OUTPUT}kernel = {PREFIX_OUTPUT}kernel_result.kernel;

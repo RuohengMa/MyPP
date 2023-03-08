@@ -1187,10 +1187,9 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
     def conditionally_print_cast(self, code_indent='  '):
         if self.api == "cast":
             return f"""
-{code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG_CAST") != nullptr) {{"""
+{code_indent}if (std::getenv("XPU_DY_ACC_DEBUG_CAST") != nullptr) {{"""
         else:
-            return f"""
-{code_indent}  {{"""
+            return f"{code_indent}{{"
 
     def print_op_input(self):
         return ""
@@ -1264,7 +1263,7 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  }}
 {self.conditionally_print_cast()}
 {self.print_op_input()}
-  }}
+{code_indent}  }}
 {self.gene_debug_input(kernel_dispatch, code_indent)}
 {self.gene_debug_output(self.outputs['types'], out_tensor_type_list, code_indent, inplace_flag)}
 {self.gene_debug_infer_meta(kernel_output_names, code_indent)}
@@ -1272,7 +1271,7 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}    (*kernel_fn)({kernel_args}, {", ".join(outputs_args)});
 {self.conditionally_print_cast()}
 {self.print_op_output()}
-  }}
+{code_indent}  }}
 {code_indent}  if(kernel_record_event != nullptr){{
 {code_indent}    delete kernel_record_event;
 {code_indent}  }}
