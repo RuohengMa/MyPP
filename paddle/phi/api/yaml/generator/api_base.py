@@ -1189,7 +1189,8 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
             return f"""
 {code_indent}if (std::getenv("XPU_DY_ACC_DEBUG_CAST") != nullptr) {{"""
         else:
-            return f"{code_indent}{{"
+            return f"""
+{code_indent}{{"""
 
     def print_op_input(self):
         return ""
