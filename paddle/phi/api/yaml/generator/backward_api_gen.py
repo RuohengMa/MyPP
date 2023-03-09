@@ -205,7 +205,7 @@ class BackwardAPI(BaseAPI):
         # prefix input name with 'debug_'
         input_tensors = re.sub(
             r"kernel\.InputAt\(([0-9]+)\)",
-            r"*(new phi::TensorArgDef(Backend::CPU, kernel.InputAt(\1).layout, kernel.InputAt(\1).dtype, kernel.InputAt(\1).type_index))",
+            r"{Backend::CPU, kernel.InputAt(\1).layout, kernel.InputAt(\1).dtype, kernel.InputAt(\1).type_index}",
             input_tensors,
         )
 
@@ -221,7 +221,7 @@ class BackwardAPI(BaseAPI):
         # so it is necessary to modify it
         pattern = rf"std::vector\<const phi::DenseTensor\*\> {PREFIX_TENSOR_NAME}([a-z|_|0-9]+) = TensorToConstDenseTensorPtr\([a-z|_|0-9]+\);"
         sub_str = rf"""
-{code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, phi::TensorArgDef(Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)), {{false, false, true, false}});
+{code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, {{Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)}}, {{false, false, true, false}});
 {code_indent}  std::vector<const phi::DenseTensor*> {PREFIX_TENSOR_NAME}\1({PREFIX_TENSOR_NAME}\1_vec->size());
 {code_indent}  for (size_t i = 0; i < {PREFIX_TENSOR_NAME}\1.size(); ++i) {{
 {code_indent}    {PREFIX_TENSOR_NAME}\1[i] = &{PREFIX_TENSOR_NAME}\1_vec->at(i);
@@ -230,7 +230,7 @@ class BackwardAPI(BaseAPI):
 
         pattern = rf"paddle::optional\<std::vector\<const phi::DenseTensor\*\>\> {PREFIX_TENSOR_NAME}([a-z|_|0-9]+) = TensorToConstDenseTensorPtr\([a-z|_|0-9]+\);"
         sub_str = rf"""
-{code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, phi::TensorArgDef(Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)), {{false, false, true, false}});
+{code_indent}  auto {PREFIX_TENSOR_NAME}\1_vec = PrepareData(\1, {{Backend::CPU, DataLayout::UNDEFINED, DataType::UNDEFINED, typeid(int)}}, {{false, false, true, false}});
 {code_indent}  paddle::optional<std::vector<const phi::DenseTensor*>> {PREFIX_TENSOR_NAME}\1;
 {code_indent}  if ({PREFIX_TENSOR_NAME}\1_vec){{
 {code_indent}    {PREFIX_TENSOR_NAME}\1 = paddle::optional<std::vector<const phi::DenseTensor*>>({PREFIX_TENSOR_NAME}\1_vec->size());
@@ -438,11 +438,11 @@ class BackwardAPI(BaseAPI):
                     meta_tensor_code = (
                         meta_tensor_code
                         + f"""
-    {code_indent}  auto {PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec = MakeMetaTensor({PREFIX_OUTPUT}{out_name});
-    {code_indent}  std::vector<phi::MetaTensor*> {PREFIX_OUTPUT}{out_name}_metas({PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec.size());
-    {code_indent}  for (size_t i = 0; i < {PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec.size(); ++i) {{
-    {code_indent}    {PREFIX_OUTPUT}{out_name}_metas[i] = {PREFIX_OUTPUT}{out_name}[i] ? &{PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec[i] : nullptr;
-    {code_indent}  }}"""
+{code_indent}  auto {PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec = MakeMetaTensor({PREFIX_OUTPUT}{out_name});
+{code_indent}  std::vector<phi::MetaTensor*> {PREFIX_OUTPUT}{out_name}_metas({PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec.size());
+{code_indent}  for (size_t i = 0; i < {PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec.size(); ++i) {{
+{code_indent}    {PREFIX_OUTPUT}{out_name}_metas[i] = {PREFIX_OUTPUT}{out_name}[i] ? &{PREFIX_OUTPUT}{out_name}_{PREFIX_META_TENSOR_NAME}vec[i] : nullptr;
+{code_indent}  }}"""
                     )
 
                     param_code = param_code + out_name + '_metas, '
