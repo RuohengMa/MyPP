@@ -30,6 +30,8 @@ inplace_optional_out_type_map = {
 
 PREFIX_OUTPUT = "debug_"
 
+SKIP_LIST = ["momentum_"]
+
 
 class ForwardAPI(BaseAPI):
     def __init__(self, api_item_yaml):
@@ -223,9 +225,13 @@ class ForwardAPI(BaseAPI):
 {code_indent}  if (std::getenv("XPU_DY_ACC_DEBUG") != nullptr || std::getenv("XPU_DY_ACC_DEBUG_OUTPUT") != nullptr) {{
 {code_indent}    std::cout << "CPU output: " << std::endl;
 {code_indent}    auto dy_acc_debug_dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;"""
-        for i in range(size):
-            debug_code += f"""
+        if self.api not in SKIP_LIST:
+            for i in range(size):
+                debug_code += f"""
 {code_indent}    OpOutputDebugger::PrintOutput({self.kernel_debug_outputs[i]}, Backend::CPU);"""
+        else:
+            debug_code += f"""
+{code_indent}    std::cout << "    api in skip list, skipped." << std::endl;"""
         debug_code += f"""
 {code_indent}    std::cout << "XPU output: " << std::endl;"""
         for i in range(size):
@@ -237,6 +243,9 @@ class ForwardAPI(BaseAPI):
         return debug_code
 
     def gene_debug_input(self, kernel_dispatch, code_indent):
+        if self.api in SKIP_LIST:
+            return ""
+
         set_prefix_tensor_name("debug_input_")
         global PREFIX_TENSOR_NAME
         PREFIX_TENSOR_NAME = "debug_input_"
@@ -297,6 +306,9 @@ class ForwardAPI(BaseAPI):
         code_indent='',
         inplace_flag=False,
     ):
+        if self.api in SKIP_LIST:
+            return ""
+
         kernel_output = []
         output_names = []
         output_create = ""
@@ -409,6 +421,9 @@ class ForwardAPI(BaseAPI):
         return output_create
 
     def gene_debug_infer_meta(self, kernel_output_names, code_indent) -> str:
+        if self.api in SKIP_LIST:
+            return ""
+
         PREFIX_OUTPUT = "debug_"
         PREFIX_META_TENSOR_NAME = "meta_"
 
@@ -544,6 +559,9 @@ class ForwardAPI(BaseAPI):
     def gene_debug_kernel(
         self, kernel_name, kernel_signature, kernel_args, outputs_args
     ):
+        if self.api in SKIP_LIST:
+            return ""
+
         code_indent = "  "
         # kernel_args_tmp = re.sub(r"input\_([a-z_]+)", r"\1", kernel_args)
         kernel_args_tmp = re.sub(r"\*?input_([a-z]+)", r"\1", kernel_args)
