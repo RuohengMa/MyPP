@@ -56,6 +56,7 @@ def source_include(header_file_path):
 #include "paddle/phi/api/profiler/supplement_tracing.h"
 
 #include "paddle/phi/api/lib/op_debug.h"
+#include "paddle/fluid/platform/place.h"
 
 DECLARE_int32(low_precision_op_list);
 """
