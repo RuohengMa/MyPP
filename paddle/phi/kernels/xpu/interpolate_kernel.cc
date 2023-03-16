@@ -358,7 +358,6 @@ void BicubicInterpKernel(
                                         in_w,
                                         out_h,
                                         out_w,
-                                        interp_method,
                                         align_corners,
                                         (data_layout == DataLayout::kNCHW));
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "interpolate2d_bicubic");

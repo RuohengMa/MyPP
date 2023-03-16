@@ -154,6 +154,7 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
                 in_w = self.input_shape[2]
             scale_h = 0
             scale_w = 0
+
             if self.scale:
                 if isinstance(self.scale, float) or isinstance(self.scale, int):
                     if self.scale > 0.0:
@@ -208,9 +209,10 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
 
         def init_test_case(self):
             self.interp_method = 'bicubic'
-            self.input_shape = [2, 3, 5, 5]
-            self.out_h = 7
-            self.out_w = 7
+            # self.input_shape = [2, 3, 5, 5]
+            self.input_shape = [1, 1, 2, 2]
+            self.out_h = 4
+            self.out_w = 4
             self.scale = 0.0
             # self.out_size = np.array([3, 3]).astype("int32")
             self.align_corners = True
@@ -219,7 +221,6 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
         def init_place(self):
             self.place = paddle.XPUPlace(0)
 
-    '''
     class TestBicubicInterpCase1(TestBicubicInterpOp):
         def init_test_case(self):
             self.interp_method = 'bicubic'
@@ -240,9 +241,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpCase3(TestBilinearInterpOp):
+    class TestBicubicInterpCase3(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [1, 1, 32, 64]
             self.out_h = 64
             self.out_w = 32
@@ -250,9 +251,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpCase4(TestBilinearInterpOp):
+    class TestBicubicInterpCase4(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [4, 1, 7, 8]
             self.out_h = 1
             self.out_w = 1
@@ -261,9 +262,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpCase5(TestBilinearInterpOp):
+    class TestBicubicInterpCase5(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [3, 3, 9, 6]
             self.out_h = 12
             self.out_w = 12
@@ -272,9 +273,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpCase6(TestBilinearInterpOp):
+    class TestBicubicInterpCase6(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [1, 1, 32, 64]
             self.out_h = 64
             self.out_w = 32
@@ -283,9 +284,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpCase7(TestBilinearInterpOp):
+    class TestBicubicInterpCase7(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [1, 1, 32, 64]
             self.out_h = 64
             self.out_w = 32
@@ -293,9 +294,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = False
             self.align_mode = 1
 
-    class TestBilinearInterpSame(TestBilinearInterpOp):
+    class TestBicubicInterpSame(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 32, 64]
             self.out_h = 32
             self.out_w = 64
@@ -303,9 +304,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpActualShape(TestBilinearInterpOp):
+    class TestBicubicInterpActualShape(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [3, 2, 32, 16]
             self.out_h = 64
             self.out_w = 32
@@ -314,24 +315,24 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpOtherMethod1(TestBilinearInterpOp):
+    class TestBicubicInterpOtherMethod1(TestBicubicInterpOp):
         def set_align_mode(self):
             self.align_corners = False
             self.align_mode = 1
 
-    class TestBilinearInterpWithMethod2(TestBilinearInterpOp):
+    class TestBicubicInterpWithMethod2(TestBicubicInterpOp):
         def set_align_mode(self):
             self.align_corners = False
             self.align_mode = 0
 
-    class TestBilinearInterpWithMethod3(TestBilinearInterpOp):
+    class TestBicubicInterpWithMethod3(TestBicubicInterpOp):
         def set_align_mode(self):
             self.align_corners = True
             self.align_mode = 0
 
-    class TestBilinearInterpScale1(TestBilinearInterpOp):
+    class TestBicubicInterpScale1(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 5, 7]
             self.out_h = 60
             self.out_w = 25
@@ -339,9 +340,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpScale2(TestBilinearInterpOp):
+    class TestBicubicInterpScale2(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 5, 7]
             self.out_h = 60
             self.out_w = 25
@@ -349,9 +350,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpScale3(TestBilinearInterpOp):
+    class TestBicubicInterpScale3(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 5, 7]
             self.out_h = 60
             self.out_w = 25
@@ -359,9 +360,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpScale4(TestBilinearInterpOp):
+    class TestBicubicInterpScale4(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 5, 7]
             self.out_h = 60
             self.out_w = 25
@@ -369,9 +370,9 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
             self.align_mode = 1
 
-    class TestBilinearInterpZero(TestBilinearInterpOp):
+    class TestBicubicInterpZero(TestBicubicInterpOp):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 5, 7]
             self.out_h = 60
             self.out_w = 25
@@ -379,7 +380,8 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = False
             self.align_mode = 0
 
-    class TestBilinearInterpOp_attr_tensor(XPUOpTest):
+    '''
+    class TestBicubicInterpOp_attr_tensor(XPUOpTest):
         def setUp(self):
             self.out_size = None
             self.actual_shape = None
@@ -452,7 +454,7 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.check_grad_with_place(self.place, ['X'], 'Out', in_place=True)
 
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [2, 3, 5, 5]
             self.out_h = 3
             self.out_w = 3
@@ -464,11 +466,11 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.place = paddle.XPUPlace(0)
 
     # out_size is a 1-D tensor
-    class TestBilinearInterp_attr_tensor_Case1(
-        TestBilinearInterpOp_attr_tensor
+    class TestBicubicInterp_attr_tensor_Case1(
+        TestBicubicInterpOp_attr_tensor
     ):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [3, 3, 9, 6]
             self.out_h = 12
             self.out_w = 12
@@ -477,11 +479,11 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.align_corners = True
 
     # scale is a 1-D tensor
-    class TestBilinearInterp_attr_tensor_Case2(
-        TestBilinearInterpOp_attr_tensor
+    class TestBicubicInterp_attr_tensor_Case2(
+        TestBicubicInterpOp_attr_tensor
     ):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [3, 2, 32, 16]
             self.out_h = 64
             self.out_w = 32
@@ -491,11 +493,11 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.shape_by_1Dtensor = True
 
     # scale is a 1-D tensor
-    class TestBilinearInterp_attr_tensor_Case3(
-        TestBilinearInterpOp_attr_tensor
+    class TestBicubicInterp_attr_tensor_Case3(
+        TestBicubicInterpOp_attr_tensor
     ):
         def init_test_case(self):
-            self.interp_method = 'bilinear'
+            self.interp_method = 'bicubic'
             self.input_shape = [3, 2, 32, 16]
             self.out_h = 64
             self.out_w = 32
@@ -503,6 +505,7 @@ class XPUTestBicubicInterpV2Op(XPUOpTestWrapper):
             self.out_size = None
             self.align_corners = True
             self.scale_by_1Dtensor = True
+
     '''
 
 
