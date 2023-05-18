@@ -115,3 +115,21 @@ PD_REGISTER_KERNEL(empty_like_csr,
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_CSR);
 }
 #endif
+
+#if defined(PADDLE_WITH_XPU) || !defined(PADDLE_WITH_XPU_KP)
+PD_REGISTER_KERNEL(empty_like_coo,
+                   XPU,
+                   ALL_LAYOUT,
+                   phi::sparse::EmptyLikeCooKernel,
+                   phi::dtype::float16,
+                   float,
+                   double,
+                   int8_t,
+                   uint8_t,
+                   int16_t,
+                   int,
+                   int64_t,
+                   bool) {
+  kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
+}
+#endif
