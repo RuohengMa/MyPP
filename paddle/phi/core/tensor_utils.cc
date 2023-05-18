@@ -425,6 +425,11 @@ template void Copy(const XPUContext& dev_ctx,
                    Place dst_place,
                    bool blocking,
                    TensorArray* dst);
+template void Copy(const XPUContext& dev_ctx,
+                   const SparseCooTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   SparseCooTensor* dst);
 #endif
 
 #ifdef PADDLE_WITH_CUSTOM_DEVICE

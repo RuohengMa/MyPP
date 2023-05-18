@@ -159,6 +159,8 @@ XPUOpMap& get_kl2_ops() {
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"conv2d_xpu",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
+      {"conv3d_coo",
+       XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT64})},
       {"conv3d_grad",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"conv3d",
