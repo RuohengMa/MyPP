@@ -1307,6 +1307,7 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  // add actual_kernel_backend to select actual kernel backend after a potential falling-back to CPU
 {code_indent}  Backend actual_kernel_backend = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
 {code_indent}  auto* dev_ctx = GetDeviceContextByBackend(actual_kernel_backend);
+{code_indent}  auto dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
 {input_tensors}
 {output_create}
 {pre_save_stride}
@@ -1324,6 +1325,11 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  if(phi::RecordEvent::IsEnabled()){{
 {code_indent}    kernel_record_event = new phi::RecordEvent(\"{self.api} compute\", phi::TracerEventType::OperatorInner, 1);
 {code_indent}  }}
+{code_indent}  struct timeval t1;
+{code_indent}  struct timeval t2;
+{code_indent}  if (std::getenv("XPU_PADDLE_OP_TIME") != nullptr) {{
+{code_indent}    gettimeofday(&t1, NULL);
+{code_indent}  }}
 {code_indent}    (*kernel_fn)({kernel_args}, {", ".join(outputs_args)});
 {code_indent}  if(kernel_record_event != nullptr){{
 {code_indent}    delete kernel_record_event;
@@ -1331,6 +1337,16 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  if (kernel_result.has_fallback_cpu) {{
 {fallback_kernel_output_trans}
 {self.reset_view_after_fallback(self.outputs['types'], code_indent, inplace_flag)}
+{code_indent}  }}
+{code_indent}  if (std::getenv("XPU_PADDLE_OP_TIME") != nullptr) {{
+{code_indent}    if (dev_place == Backend::XPU) {{
+{code_indent}      dev_ctx->Wait();
+{code_indent}    }}
+{code_indent}    gettimeofday(&t2, NULL);
+{code_indent}    uint32_t diff = 1000000 * (t2.tv_sec - t1.tv_sec) + t2.tv_usec - t1.tv_usec;
+{code_indent}    std::cout << "op_name " << phi::TransToFluidOpName("{kernel_name}") << " " << diff << " "
+{code_indent}              << dev_place << " "
+{code_indent}              << kernel_data_type << std::endl;
 {code_indent}  }}
 {code_indent}  dev_ctx = GetDeviceContextByBackend(kernel_backend);
 {transdata2strided}
