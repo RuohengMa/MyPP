@@ -51,12 +51,10 @@ void GaussianInplaceKernel(const Context& dev_ctx,
 
   int64_t size = out->numel();
   std::shared_ptr<std::mt19937_64> engine;
-  if (seed) {
-    engine = std::make_shared<std::mt19937_64>();
-    engine->seed(seed);
-  } else {
-    engine = dev_ctx.GetGenerator()->GetCPUEngine();
-  }
+
+  int fix_seed = 2023;
+  engine = std::make_shared<std::mt19937_64>();
+  engine->seed(fix_seed);
 
   NormalDistribution<T>(data, size, mean, std, engine);
 }

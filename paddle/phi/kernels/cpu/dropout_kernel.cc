@@ -73,36 +73,13 @@ void DropoutRawKernel(const Context& dev_ctx,
       std::memset(mask_data, 0, size * sizeof(*mask_data));  // NOLINT
       return;
     }
-    // std::minstd_rand engine;
-    // NOTE: fixed seed should only be used in unittest or for debug.
-    // Guarantee to use random seed in training.
-    int seed_data = 0;
-    if (seed_tensor.get_ptr() != nullptr) {
-      seed_data = *(seed_tensor->data<int>());
-    } else {
-      seed_data = fix_seed ? seed : 0;
-    }
-    std::shared_ptr<std::mt19937_64> engine;
-    if (seed_data) {
-      engine = std::make_shared<std::mt19937_64>();
-      engine->seed(seed_data);
-    } else {
-      engine = dev_ctx.GetGenerator()->GetCPUEngine();
-    }
-
-    std::uniform_real_distribution<float> dist(0, 1);
 
     for (size_t i = 0; i < size; ++i) {
-      if (dist(*engine) < dropout_prob) {
-        mask_data[i] = 0;
-        y_data[i] = 0;
+      mask_data[i] = 1;
+      if (upscale_in_train) {
+        y_data[i] = x_data[i] / static_cast<T>(1.0f - dropout_prob);
       } else {
-        mask_data[i] = 1;
-        if (upscale_in_train) {
-          y_data[i] = x_data[i] / static_cast<T>(1.0f - dropout_prob);
-        } else {
-          y_data[i] = x_data[i];
-        }
+        y_data[i] = x_data[i];
       }
     }
   } else {
