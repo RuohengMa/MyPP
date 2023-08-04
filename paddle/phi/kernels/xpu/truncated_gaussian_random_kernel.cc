@@ -43,12 +43,10 @@ void TruncatedGaussianRandomKernel(const Context& dev_ctx,
   std::unique_ptr<T[]> data_cpu(new T[size]);
 
   std::shared_ptr<std::mt19937_64> engine;
-  if (seed) {
-    engine = std::make_shared<std::mt19937_64>();
-    engine->seed(seed);
-  } else {
-    engine = dev_ctx.GetGenerator()->GetCPUEngine();
-  }
+
+  int fix_seed = 2023;
+  engine = std::make_shared<std::mt19937_64>();
+  engine->seed(fix_seed);
 
   for (int64_t i = 0; i < size; ++i) {
     data_cpu[i] = truncated_normal(dist(*engine));
