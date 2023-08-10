@@ -56,7 +56,9 @@ void GaussianInplaceKernel(const Context& dev_ctx,
   engine = std::make_shared<std::mt19937_64>();
   engine->seed(fix_seed);
 
-  NormalDistribution<T>(data, size, mean, std, engine);
+  for (int64_t i = 0; i < size; ++i) {
+    data[i] = dist(*engine);
+    dist.reset();
 }
 
 }  // namespace phi

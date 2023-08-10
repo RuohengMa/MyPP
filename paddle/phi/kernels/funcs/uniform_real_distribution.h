@@ -31,6 +31,7 @@ inline void UniformRealDistribution(T *data,
                                          static_cast<T>(max));
   for (int64_t i = 0; i < size; ++i) {
     data[i] = dist(*engine);
+    dist.reset();
   }
 }
 
@@ -43,6 +44,7 @@ inline void UniformRealDistribution(phi::dtype::bfloat16 *data,
   std::uniform_real_distribution<float> dist(min, max);
   for (int64_t i = 0; i < size; ++i) {
     data[i] = static_cast<phi::dtype::bfloat16>(dist(*engine));
+    dist.reset();
   }
 }
 
@@ -55,6 +57,7 @@ inline void UniformRealDistribution(phi::dtype::float16 *data,
   std::uniform_real_distribution<float> dist(min, max);
   for (int64_t i = 0; i < size; ++i) {
     data[i] = static_cast<phi::dtype::float16>(dist(*engine));
+    dist.reset();
   }
 }
 

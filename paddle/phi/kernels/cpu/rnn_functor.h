@@ -146,17 +146,8 @@ void DropoutCpuFunctionInplace(const CPUContext& dev_ctx,
     if (dropout_prob == 1.0f) {
       std::fill(mask_data, mask_data + size, static_cast<uint8_t>(0));
     } else {
-      int fix_seed = 2023;
-      std::shared_ptr<std::mt19937_64> engine;
-      engine = std::make_shared<std::mt19937_64>();
-      engine->seed(fix_seed);
-      std::uniform_real_distribution<float> dist(0, 1);
       for (size_t i = 0; i < size; ++i) {
-        if (dist(*engine) < dropout_prob) {
-          mask_data[i] = 0;
-        } else {
-          mask_data[i] = 1;
-        }
+        mask_data[i] = 1;
       }
     }
     *is_has_reset = true;

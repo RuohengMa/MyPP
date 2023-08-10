@@ -67,20 +67,9 @@ void DropoutRawKernel(const Context& dev_ctx,
     auto* mask_data = dev_ctx.template Alloc<uint8_t>(mask);
     size_t size = common::product(mask->dims());
 
-    // Special case when dropout_prob is 1.0
-    if (dropout_prob == 1.0f) {
-      std::memset(y_data, 0, size * sizeof(*y_data));        // NOLINT
-      std::memset(mask_data, 0, size * sizeof(*mask_data));  // NOLINT
-      return;
-    }
-
     for (size_t i = 0; i < size; ++i) {
       mask_data[i] = 1;
-      if (upscale_in_train) {
-        y_data[i] = x_data[i] / static_cast<T>(1.0f - dropout_prob);
-      } else {
-        y_data[i] = x_data[i];
-      }
+      y_data[i] = x_data[i];
     }
   } else {
     ComputeDropoutInference<T, Context>(
