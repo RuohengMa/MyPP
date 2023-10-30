@@ -1307,7 +1307,6 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  // add actual_kernel_backend to select actual kernel backend after a potential falling-back to CPU
 {code_indent}  Backend actual_kernel_backend = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
 {code_indent}  auto* dev_ctx = GetDeviceContextByBackend(actual_kernel_backend);
-{code_indent}  auto dev_place = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
 {input_tensors}
 {output_create}
 {pre_save_stride}
@@ -1335,7 +1334,7 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  }}
 {code_indent}  if (std::getenv("XPU_PADDLE_OP_TIME") != nullptr) {{
 {code_indent}    std::cout << "op_name " << phi::TransToFluidOpName("{kernel_name}") << " "
-{code_indent}              << dev_place << " "
+{code_indent}              << actual_kernel_backend << " "
 {code_indent}              << kernel_data_type << std::endl;
 {code_indent}  }}
 {code_indent}  dev_ctx = GetDeviceContextByBackend(kernel_backend);
