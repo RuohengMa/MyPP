@@ -27,6 +27,8 @@
 
 #include "none.h"
 
+#include "paddle/phi/backends/dynload/port.h"
+
 namespace paddle {
 
 // Daniel Wallin discovered that bind/apply.hpp badly interacts with the apply<>
