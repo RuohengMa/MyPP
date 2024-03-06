@@ -382,6 +382,13 @@ class ForwardAPI(BaseAPI):
         return remap_code
 
 
+def additional_header_include():
+    return f"""
+#include <fstream>
+#include <cstdlib>
+"""
+
+
 def header_include():
     return """
 #include <tuple>
@@ -390,7 +397,7 @@ def header_include():
 #include "paddle/phi/common/scalar.h"
 #include "paddle/phi/common/int_array.h"
 #include "paddle/utils/optional.h"
-"""
+""" + additional_header_include()
 
 
 def source_include(header_file_path):
@@ -455,6 +462,53 @@ PD_DECLARE_API(reshard);
 """
 
 
+def define_variables():
+    return f"""
+std::vector<std::string> x_input_dims;
+std::vector<std::string> y_input_dims;
+std::vector<std::string> x_input_dtypes;
+std::vector<std::string> y_input_dtypes;
+bool is_loaded = false;
+std::string delimiter = "-";
+
+void read_specific_dim_dtype(std::string path, std::vector<std::string> &x_input_dims, std::vector<std::string> &y_input_dims, std::vector<std::string> &x_input_dtypes, std::vector<std::string> &y_input_dtypes) {{
+    std::ifstream file(path);
+    std::string line;
+    std::string specific_matmul_prefix = "SPECIFIC matmul";
+    std::string token;
+    if (file.is_open()) {{
+        while (std::getline(file, line)) {{
+            if (line.substr(0, specific_matmul_prefix.length()) == specific_matmul_prefix) {{
+                size_t pos = 0;
+                pos = line.find(delimiter);
+                line.erase(0, pos + delimiter.length());
+
+                pos = line.find(delimiter);
+                token = line.substr(0, pos);
+                x_input_dims.push_back(token);
+                line.erase(0, pos + delimiter.length());
+
+                pos = line.find(delimiter);
+                token = line.substr(0, pos);
+                y_input_dims.push_back(token);
+                line.erase(0, pos + delimiter.length());
+
+                pos = line.find(delimiter);
+                token = line.substr(0, pos);
+                x_input_dtypes.push_back(token);
+                line.erase(0, pos + delimiter.length());
+
+                pos = line.find(delimiter);
+                token = line.substr(0, pos);
+                y_input_dtypes.push_back(token);
+                line.erase(0, pos + delimiter.length());
+            }}
+        }}
+    }}
+}}
+"""
+
+
 def generate_api(
     api_yaml_path, is_fused_ops_yaml, header_file_path, source_file_path
 ):
@@ -492,6 +546,9 @@ def generate_api(
 
     source_file.write(source_include(include_header_file))
     source_file.write(namespace[0])
+
+    if is_fused_ops_yaml is False:
+        source_file.write(define_variables())
 
     for api in apis:
         forward_api = ForwardAPI(api)

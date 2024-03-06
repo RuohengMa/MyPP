@@ -1243,6 +1243,56 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
     ):
         return ''
 
+    def generate_cpu_kernel_code_for_matmul(self, kernel_name, code_indent):
+        if kernel_name == "matmul":
+          return f"""
+{code_indent}  std::string x_dim_str = x.dims().to_str();
+{code_indent}  std::string y_dim_str = y.dims().to_str();
+{code_indent}  std::string x_dtype_str = phi::DataTypeToString(x.dtype());
+{code_indent}  std::string y_dtype_str = phi::DataTypeToString(y.dtype());
+{code_indent}  Backend matmul_specific_backend = kernel_backend;
+{code_indent}  DataType matmul_specific_datatype = kernel_data_type;
+{code_indent}  if (std::getenv("XPU_PADDLE_GET_OP_DATATYPE_DIM") != nullptr)
+{code_indent}  {{
+{code_indent}      // SPECIFIC matmul-[1, 2, 3]-[1, 2, 3]-float16-float16-
+{code_indent}      std::cout << phi::TransToFluidOpName("SPECIFIC matmul") << delimiter << x_dim_str << delimiter << y_dim_str << delimiter << x_dtype_str << delimiter << y_dtype_str << delimiter << std::endl;
+{code_indent}  }}
+{code_indent}  if (std::getenv("XPU_BLACK_LIST_MATMUL_SPECIFIC") != nullptr)
+{code_indent}  {{
+{code_indent}      if (!is_loaded) {{
+{code_indent}          read_specific_dim_dtype(std::string(std::getenv("XPU_BLACK_LIST_MATMUL_SPECIFIC")), x_input_dims, y_input_dims, x_input_dtypes, y_input_dtypes);
+{code_indent}          is_loaded = true;
+{code_indent}      }}
+{code_indent}      for (uint i = 0; i < x_input_dims.size(); ++i)
+{code_indent}      {{
+{code_indent}          if (x_dim_str == x_input_dims[i] && y_dim_str == y_input_dims[i] && x_dtype_str == x_input_dtypes[i] && y_dtype_str == y_input_dtypes[i]) {{
+{code_indent}              matmul_specific_backend = Backend::CPU;
+{code_indent}              matmul_specific_datatype = DataType::FLOAT32;
+{code_indent}              break;
+{code_indent}          }}
+{code_indent}      }}
+{code_indent}  }}
+{code_indent}  auto kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
+{code_indent}      "matmul", {{matmul_specific_backend, kernel_layout, matmul_specific_datatype}}, true);
+{code_indent}  const auto &kernel = kernel_result.kernel;"""
+        else:
+          return f"""
+{code_indent}  auto kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
+{code_indent}      "{kernel_name}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
+{code_indent}  const auto& kernel = kernel_result.kernel;"""
+
+    def generate_transdatatype_code_for_matmul(self, kernel_name, code_indent):
+        if kernel_name == "matmul":
+          return f"""
+{code_indent}  std::cout << "maruoheng debug: before TransDataType" << std::endl;
+{code_indent}  if (std::getenv("XPU_BLACK_LIST_MATMUL_SPECIFIC") != nullptr)
+{code_indent}  {{
+{code_indent}      TransDataType(kernel_out, kernel_data_type, kernel_out);
+{code_indent}  }}
+{code_indent}  std::cout << "maruoheng debug: after TransDataType" << std::endl;"""
+        else:
+          return ""
+
     def gen_kernel_code(self, kernel_name, code_indent, inplace_flag=False):
         kernel_dispatch = self.kernel['dispatch'][kernel_name]
         input_tensors, kernel_args, kernel_signature = self.get_kernel_args(
@@ -1296,19 +1346,27 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}      *target_ptr = *{kernel_out}.at(i);
 {code_indent}    }}"""
         return f"""
-{code_indent}  VLOG(6) << "{self.api} API kernel key: [" << kernel_backend << ", " << kernel_layout << ", "<< kernel_data_type << "]";
-{code_indent}  auto kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
-{code_indent}      "{kernel_name}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
-{code_indent}  const auto& kernel = kernel_result.kernel;
+{code_indent}  VLOG(6) << "{self.api} API kernel key: [" << kernel_backend << ", " << kernel_layout << ", "<< kernel_data_type << "]";""" \
+            + self.generate_cpu_kernel_code_for_matmul(kernel_name, code_indent) + f"""
 {code_indent}  if (FLAGS_low_precision_op_list) {{
 {code_indent}    phi::KernelFactory::Instance().AddToLowPrecisionKernelList("{self.api}", kernel_data_type);
 {code_indent}  }}
 {code_indent}  VLOG(6) << "{kernel_name} kernel: " << kernel;
 {code_indent}  // add actual_kernel_backend to select actual kernel backend after a potential falling-back to CPU
+""" + (f"""
+{code_indent}  Backend actual_kernel_backend = kernel_result.has_fallback_cpu ? Backend::CPU : matmul_specific_backend;
+""" if kernel_name == "matmul" else f"""
 {code_indent}  Backend actual_kernel_backend = kernel_result.has_fallback_cpu ? Backend::CPU : kernel_backend;
+""") + f"""
 {code_indent}  auto* dev_ctx = GetDeviceContextByBackend(actual_kernel_backend);
 {input_tensors}
+""" + (f"""
+{code_indent}  std::cout << "maruoheng debug: after input initialization" << std::endl;
+""" if kernel_name == "matmul" else "") + f"""
 {output_create}
+""" + (f"""
+{code_indent}  std::cout << "maruoheng debug: after input output initialization" << std::endl;
+""" if kernel_name == "matmul" else "") + f"""
 {pre_save_stride}
 {code_indent}  phi::RecordEvent *infer_shape_record_event = nullptr;
 {code_indent}  if(phi::RecordEvent::IsEnabled()){{
@@ -1319,12 +1377,24 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}    delete infer_shape_record_event;
 {code_indent}  }}
 {code_indent}  using kernel_signature = {kernel_signature};
+""" + (f"""
+{code_indent}  std::cout << "maruoheng debug: before kernel_fn initialization" << std::endl;
+""" if kernel_name == "matmul" else "") + f"""
 {code_indent}  auto* kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
+""" + (f"""
+{code_indent}  std::cout << "maruoheng debug: after kernel_fn initialization" << std::endl;
+""" if kernel_name == "matmul" else "") + f"""
 {code_indent}  phi::RecordEvent* kernel_record_event = nullptr;
 {code_indent}  if(phi::RecordEvent::IsEnabled()){{
 {code_indent}    kernel_record_event = new phi::RecordEvent(\"{self.api} compute\", phi::TracerEventType::OperatorInner, 1);
 {code_indent}  }}
+""" + (f"""
+{code_indent}  std::cout << "maruoheng debug: before compute" << std::endl;
+""" if kernel_name == "matmul" else "") + f"""
 {code_indent}    (*kernel_fn)({kernel_args}, {", ".join(outputs_args)});
+""" + (f"""
+{code_indent}  std::cout << "maruoheng debug: after compute" << std::endl;
+""" if kernel_name == "matmul" else "") + f"""
 {code_indent}  if(kernel_record_event != nullptr){{
 {code_indent}    delete kernel_record_event;
 {code_indent}  }}
@@ -1332,7 +1402,8 @@ PADDLE_API {self.get_return_type(inplace_flag=True)} {api_func_name}({self.get_d
 {code_indent}  if (kernel_result.has_fallback_cpu) {{
 {fallback_kernel_output_trans}
 {self.reset_view_after_fallback(self.outputs['types'], code_indent, inplace_flag)}
-{code_indent}  }}
+{code_indent}  }}""" \
+            + self.generate_transdatatype_code_for_matmul(kernel_name, code_indent) + f"""
 {code_indent}  {self.gene_return_code()}"""
 
     def get_condition_code(self, kernel_name):

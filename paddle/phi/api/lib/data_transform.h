@@ -142,6 +142,10 @@ std::shared_ptr<phi::DenseTensor> PrepareDataForDenseTensorInSparse(
 paddle::optional<phi::DenseTensor> PrepareDataForDenseTensorInSparse(
     const paddle::optional<Tensor>& input);
 
+void TransDataType(const phi::DenseTensor* tensor,
+                    DataType datatype,
+                    phi::DenseTensor* out);
+
 void TransDataBackend(const phi::DenseTensor* tensor,
                       Backend target_backend,
                       phi::DenseTensor* out);
