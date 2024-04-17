@@ -99,7 +99,6 @@ class ResNetUnitXPUKernel : public framework::OpKernel<T> {
         running_var_x->mutable_data<float>(place)};
 
     std::vector<const float *> x_maxlist;
-    int maxptr_size = dev_ctx.x_context()->max_ptr_size();
     if (maxptr_x) {
       const float *tmp = reinterpret_cast<const float *>(maxptr_x->data<int>());
       x_maxlist.push_back(tmp);
