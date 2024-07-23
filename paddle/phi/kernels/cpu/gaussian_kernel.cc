@@ -56,12 +56,8 @@ void GaussianInplaceKernel(const Context& dev_ctx,
   int fix_seed = 2023;
   engine = std::make_shared<std::mt19937_64>();
   engine->seed(fix_seed);
-
-  for (int64_t i = 0; i < size; ++i) {
-    data[i] = dist(*engine);
-    dist.reset();
+  NormalDistribution<T>(data, size, mean, std, engine);
 }
-
 }  // namespace phi
 
 PD_REGISTER_KERNEL(gaussian,
